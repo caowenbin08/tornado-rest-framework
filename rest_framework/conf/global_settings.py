@@ -17,3 +17,6 @@ CACHES = {
 
 # 分页记录量
 PAGE_SIZE = 10
+
+# 数据库配置
+DATABASES = {}

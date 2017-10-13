@@ -3,11 +3,10 @@ import copy
 import traceback
 from collections import OrderedDict
 
-import peewee
-
+from rest_framework.db import models
 from rest_framework.exceptions import ErrorDetail, ValidationError, SkipFieldError
-from rest_framework.forms.fields import (
-    Field, CharField, DateTimeField, IntegerField, BooleanField, FloatField,
+from rest_framework.fields import (
+    empty, Field, CharField, DateTimeField, IntegerField, BooleanField, FloatField,
     DateField,  TimeField, UUIDField, ChoiceField
 )
 from rest_framework.helpers import functional, model_meta
@@ -15,12 +14,12 @@ from rest_framework.helpers.cached_property import cached_property
 from rest_framework.helpers.field_mapping import ClassLookupDict
 from rest_framework.helpers.field_mapping import get_field_kwargs
 from rest_framework.helpers.serializer_utils import BindingDict, ReturnDict
+from rest_framework.fields import __all__ as fields_all
 
 __author__ = 'caowenbin'
 
-__all__ = ['Form', 'ModelForm', 'ALL_FIELDS']
+__all__ = ['Form', 'ModelForm'] + fields_all
 ALL_FIELDS = '__all__'
-empty = object()
 
 
 class BaseForm(Field):
@@ -33,7 +32,7 @@ class BaseForm(Field):
         # self.partial = kwargs.pop('partial', False)
         # self._context = kwargs.pop('context', {})
         self._data = None
-        self._validated_data = None
+        # self._validated_data = None
         self._errors = None
         super(BaseForm, self).__init__(**kwargs)
 
@@ -41,7 +40,7 @@ class BaseForm(Field):
         raise NotImplementedError('`to_internal_value()` must be implemented.')
 
     def to_representation(self, instance):
-        raise NotImplementedError('`to_representation()` must be implemented.')
+        pass
 
     def update(self, instance, validated_data):
         raise NotImplementedError('`update()` must be implemented.')
@@ -67,7 +66,7 @@ class BaseForm(Field):
         # )
 
         validated_data = dict(
-            list(self.validated_data.items()) +
+            list(self.data.items()) +
             list(kwargs.items())
         )
 
@@ -97,11 +96,11 @@ class BaseForm(Field):
             'passed when instantiating the serializer instance.'
         )
 
-        if self._validated_data is None:
+        if self._data is None:
             try:
-                self._validated_data = self.run_validation(self.initial_data)
+                self._data = self.run_validation(self.initial_data)
             except ValidationError as exc:
-                self._validated_data = {}
+                self._data = {}
                 self._errors = exc.detail
             else:
                 self._errors = {}
@@ -111,20 +110,20 @@ class BaseForm(Field):
 
         return not bool(self._errors)
 
-    @property
-    def data(self):
-        if hasattr(self, 'initial_data') and self._validated_data is None:
-            raise AssertionError("必须显式调用`.is_valid()`方可获取`data`")
-
-        if self._data is None:
-            if self.instance is not None and not getattr(self, '_errors', None):
-                self._data = self.to_representation(self.instance)
-            elif self._validated_data is not None and not getattr(self, '_errors', None):
-                self._data = self.to_representation(self.validated_data)
-            else:
-                self._data = self.get_initial()
-
-        return self._data
+    # @property
+    # def data(self):
+    #     if hasattr(self, 'initial_data') and self._validated_data is None:
+    #         raise AssertionError("必须显式调用`.is_valid()`方可获取`data`")
+    #
+    #     if self._data is None:
+    #         if self.instance is not None and not getattr(self, '_errors', None):
+    #             self._data = self.to_representation(self.instance)
+    #         elif self._validated_data is not None and not getattr(self, '_errors', None):
+    #             self._data = self.to_representation(self.validated_data)
+    #         else:
+    #             self._data = self.get_initial()
+    #
+    #     return self._data
 
     @property
     def errors(self):
@@ -133,10 +132,10 @@ class BaseForm(Field):
         return self._errors
 
     @property
-    def validated_data(self):
-        if self._validated_data is None:
-            raise AssertionError("必须显式调用`.is_valid()`方可获取`validated_data`")
-        return self._validated_data
+    def data(self):
+        if self._data is None:
+            raise AssertionError("必须显式调用`.is_valid()`方可获取`data`")
+        return self._data
 
 
 class FormMetaclass(type):
@@ -196,7 +195,7 @@ class Form(BaseForm):
         过滤掉只读及默认值为空的字段
         :return:
         """
-        return [field for field in self.fields.values()]
+        return [field for field in self.fields.values() if (not field.read_only) or (field.default is not None)]
 
     # @cached_property
     # def _readable_fields(self):
@@ -225,20 +224,20 @@ class Form(BaseForm):
     #     validators = getattr(meta, 'validators', None)
     #     return validators[:] if validators else []
 
-    def get_initial(self):
-        if hasattr(self, 'initial_data'):
-            return OrderedDict([
-                (field_name, field.get_value(self.initial_data))
-                for field_name, field in self.fields.items()
-                if (field.get_value(self.initial_data) is not empty) and
-                not field.read_only
-            ])
-
-        return OrderedDict([
-            (field.field_name, field.get_initial())
-            for field in self.fields.values()
-            if not field.read_only
-        ])
+    # def get_initial(self):
+    #     if hasattr(self, 'initial_data'):
+    #         return OrderedDict([
+    #             (field_name, field.get_value(self.initial_data))
+    #             for field_name, field in self.fields.items()
+    #             if (field.get_value(self.initial_data) is not empty) and
+    #             not field.read_only
+    #         ])
+    #
+    #     return OrderedDict([
+    #         (field.field_name, field.get_initial())
+    #         for field in self.fields.values()
+    #         if not field.read_only
+    #     ])
 
     def get_value(self, dictionary):
         """
@@ -285,21 +284,21 @@ class Form(BaseForm):
 
         return ret
 
-    def to_representation(self, instance):
-        """
-        Object instance -> Dict of primitive datatypes.
-        """
-        ret = OrderedDict()
-        print("----self._readable_fields-", self._readable_fields)
-        for field in self._readable_fields:
-            try:
-                attribute = field.get_attribute(instance)
-            except SkipFieldError:
-                continue
-
-            ret[field.field_name] = None if attribute is None else field.to_representation(attribute)
-
-        return ret
+    # def to_representation(self, instance):
+    #     """
+    #     Object instance -> Dict of primitive datatypes.
+    #     """
+    #     ret = OrderedDict()
+    #     print("----self._readable_fields-", self._readable_fields)
+    #     for field in self._readable_fields:
+    #         try:
+    #             attribute = field.get_attribute(instance)
+    #         except SkipFieldError:
+    #             continue
+    #
+    #         ret[field.field_name] = None if attribute is None else field.to_representation(attribute)
+    #
+    #     return ret
 
     # @staticmethod
     # def validate(attributes):
@@ -309,10 +308,10 @@ class Form(BaseForm):
         for field in self.fields.values():
             yield self[field.field_name]
 
-    @property
-    def data(self):
-        ret = super(Form, self).data
-        return ReturnDict(ret, serializer=self)
+    # @property
+    # def data(self):
+    #     ret = super(Form, self).data
+    #     return ReturnDict(ret, serializer=self)
 
     @property
     def errors(self):
@@ -330,25 +329,25 @@ class ModelForm(Form):
     """
     # 模型的字段类型与表单字段类型的对应关系
     form_field_mapping = {
-        peewee.CharField: CharField,
-        peewee.FixedCharField: CharField,
-        peewee.TextField: CharField,
-        peewee.DateTimeField: DateTimeField,
-        peewee.IntegerField: IntegerField,
-        peewee.BooleanField: BooleanField,
-        peewee.FloatField: FloatField,
-        peewee.DoubleField: FloatField,
-        peewee.BigIntegerField: IntegerField,
-        peewee.SmallIntegerField: IntegerField,
-        peewee.PrimaryKeyField: IntegerField,
-        peewee.ForeignKeyField: IntegerField,
-        peewee.DateField: DateField,
-        peewee.TimeField: TimeField,
-        peewee.TimestampField: IntegerField,
-        peewee.UUIDField: UUIDField,
+        models.CharField: CharField,
+        models.FixedCharField: CharField,
+        models.TextField: CharField,
+        models.DateTimeField: DateTimeField,
+        models.IntegerField: IntegerField,
+        models.BooleanField: BooleanField,
+        models.FloatField: FloatField,
+        models.DoubleField: FloatField,
+        models.BigIntegerField: IntegerField,
+        models.SmallIntegerField: IntegerField,
+        models.PrimaryKeyField: IntegerField,
+        models.ForeignKeyField: IntegerField,
+        models.DateField: DateField,
+        models.TimeField: TimeField,
+        models.TimestampField: IntegerField,
+        models.UUIDField: UUIDField,
     }
     form_choice_field = ChoiceField
-    url_field_name = None
+    # url_field_name = None
 
     def raise_errors_on_nested_writes(self, method_name, validated_data):
         """

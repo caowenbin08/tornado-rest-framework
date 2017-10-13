@@ -3,9 +3,8 @@ import copy
 import inspect
 from collections import OrderedDict
 
-import peewee
-
-from rest_framework.serializers.fields import (
+from rest_framework.db import models
+from rest_framework.fields import (
     Field, CharField, DateTimeField, IntegerField, BooleanField, FloatField,
     DateField,  TimeField, UUIDField
 )
@@ -14,8 +13,9 @@ from rest_framework.helpers import functional, model_meta
 from rest_framework.helpers.cached_property import cached_property
 from rest_framework.helpers.field_mapping import ClassLookupDict
 from rest_framework.helpers.serializer_utils import BindingDict, ReturnDict, ReturnList
+from rest_framework.fields import __all__ as fields_all
 
-__all__ = ['Serializer', 'ModelSerializer', 'ALL_FIELDS']
+__all__ = ['Serializer', 'ModelSerializer'] + fields_all
 
 __author__ = 'caowenbin'
 
@@ -54,6 +54,9 @@ class BaseSerializer(Field):
         meta = getattr(cls, 'Meta', None)
         list_serializer_class = getattr(meta, 'list_serializer_class', ListSerializer)
         return list_serializer_class(*args, **list_kwargs)
+
+    def to_internal_value(self, data):
+        pass
 
     def to_representation(self, instance):
         raise NotImplementedError('`to_representation()` must be implemented.')
@@ -142,22 +145,22 @@ class Serializer(BaseSerializer):
 class ModelSerializer(Serializer):
 
     serializer_field_mapping = {
-        peewee.CharField: CharField,
-        peewee.FixedCharField: CharField,
-        peewee.TextField: CharField,
-        peewee.DateTimeField: DateTimeField,
-        peewee.IntegerField: IntegerField,
-        peewee.BooleanField: BooleanField,
-        peewee.FloatField: FloatField,
-        peewee.DoubleField: FloatField,
-        peewee.BigIntegerField: IntegerField,
-        peewee.SmallIntegerField: IntegerField,
-        peewee.PrimaryKeyField: IntegerField,
-        peewee.ForeignKeyField: IntegerField,
-        peewee.DateField: DateField,
-        peewee.TimeField: TimeField,
-        peewee.TimestampField: IntegerField,
-        peewee.UUIDField: UUIDField,
+        models.CharField: CharField,
+        models.FixedCharField: CharField,
+        models.TextField: CharField,
+        models.DateTimeField: DateTimeField,
+        models.IntegerField: IntegerField,
+        models.BooleanField: BooleanField,
+        models.FloatField: FloatField,
+        models.DoubleField: FloatField,
+        models.BigIntegerField: IntegerField,
+        models.SmallIntegerField: IntegerField,
+        models.PrimaryKeyField: IntegerField,
+        models.ForeignKeyField: IntegerField,
+        models.DateField: DateField,
+        models.TimeField: TimeField,
+        models.TimestampField: IntegerField,
+        models.UUIDField: UUIDField,
     }
 
     def get_fields(self):

@@ -3,11 +3,12 @@ from threading import local
 from importlib import import_module
 
 from rest_framework.conf import settings
-from rest_framework.db import DEFAULT_DB_ALIAS
 from rest_framework.exceptions import ImproperlyConfigured
 from rest_framework.helpers.cached_property import cached_property
 
 __author__ = 'caowenbin'
+
+DEFAULT_DB_ALIAS = 'default'
 
 
 class ConnectionDoesNotExist(Exception):
