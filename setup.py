@@ -19,6 +19,9 @@ setup(
     include_package_data=True,
     zip_safe=False,
     classifiers=[],
+    entry_points={'console_scripts': [
+        'tornado-fire = rest_framework.management:execute_from_command_line',
+    ]},
     install_requires=[
         'tornado>=4.5.2',
         'peewee>=2.10.1',
