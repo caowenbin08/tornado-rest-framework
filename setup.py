@@ -15,7 +15,7 @@ setup(
     author='caowenbin',
     author_email='binhua18@126.com',
     license='BSD',
-    packages=find_packages(exclude=('admin', 'admin.*')),
+    packages=find_packages(exclude=('admin', 'admin.*', 'rest_framework.test', 'rest_framework.test.*')),
     include_package_data=True,
     zip_safe=False,
     classifiers=[],

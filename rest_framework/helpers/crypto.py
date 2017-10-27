@@ -6,7 +6,7 @@ import random
 import struct
 import time
 
-from rest_framework.helpers.helpers.encoding import force_bytes
+from rest_framework.helpers.encoding import force_bytes
 
 try:
     random = random.SystemRandom()

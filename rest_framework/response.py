@@ -2,7 +2,6 @@
 from tornado import escape
 
 from rest_framework.helpers.status import HTTP_200_OK
-from rest_framework.helpers import six
 
 __author__ = 'caowenbin'
 
@@ -28,7 +27,7 @@ class Response(object):
         self.content_type = content_type if content_type else "application/json"
 
         if headers:
-            for name, value in six.iteritems(headers):
+            for name, value in iter(headers.items()):
                 self[name] = value
 
     @property
