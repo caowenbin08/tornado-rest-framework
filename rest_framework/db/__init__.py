@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 import peewee
+from playhouse import migrate
 from rest_framework.db.conn import ConnectionHandler, DEFAULT_DB_ALIAS
 
 __author__ = 'caowenbin'
 models = peewee
+migrator = migrate
 # 所有数据库连接
 databases = ConnectionHandler()
 

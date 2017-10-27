@@ -20,3 +20,13 @@ PAGE_SIZE = 10
 
 # 数据库配置
 DATABASES = {}
+# model迁移
+INSTALLED_APPS = []
+# 密码加密方式
+PASSWORD_HASHERS = [
+    'rest_framework.helpers.hashers.PBKDF2PasswordHasher',
+    'rest_framework.helpers.hashers.PBKDF2SHA1PasswordHasher',
+    'rest_framework.helpers.hashers.Argon2PasswordHasher',
+    'rest_framework.helpers.hashers.BCryptSHA256PasswordHasher',
+    'rest_framework.helpers.hashers.BCryptPasswordHasher',
+]

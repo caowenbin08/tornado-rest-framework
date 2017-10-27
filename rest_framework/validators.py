@@ -267,6 +267,7 @@ class IPAddressValidator(object):
 
         return True
 
+
 def int_list_validator(sep=',', message=None, code='invalid', allow_negative=False):
     regexp = lazy_re_compile(r'^%(neg)s\d+(?:%(sep)s%(neg)s\d+)*\Z' % {
         'neg': '(-)?' if allow_negative else '',
@@ -446,34 +447,6 @@ class FileExtensionValidator(object):
         )
 
 
-# def get_available_image_extensions():
-#     try:
-#         from PIL import Image
-#     except ImportError:
-#         return []
-#     else:
-#         Image.init()
-#         return [ext.lower()[1:] for ext in Image.EXTENSION.keys()]
-#
-#
-# validate_image_file_extension = FileExtensionValidator(
-#     allowed_extensions=get_available_image_extensions(),
-# )
-
-# def qs_exists(queryset):
-#     try:
-#         return queryset.exists()
-#     except (TypeError, ValueError, DataError):
-#         return False
-#
-#
-# def qs_filter(queryset, **kwargs):
-#     try:
-#         return queryset.filter(**kwargs)
-#     except (TypeError, ValueError, DataError):
-#         return queryset.none()
-
-
 class UniqueValidator(object):
     """
     Validator that corresponds to `unique=True` on a model field.
@@ -527,3 +500,40 @@ class UniqueValidator(object):
     #         self.__class__.__name__,
     #         smart_repr(self.queryset)
     #     )
+
+
+class PasswordValidator(object):
+    """
+    密码是否合法
+    """
+
+    message = {
+        "number": "输入一个有效的6位数字密码",
+        "char_normal": "输入一个有效的6-18位英文数字混合密码",
+        "char_english": "输入一个6-18位必须包含大小写字母/数字/符号任意两者组合密码"
+    }
+    code = 'invalid'
+
+    def __init__(self, level="number", message=None, code=None):
+        self.level = level
+        assert isinstance(message, (type(None), dict)), "message值必须为字典类型"
+        if message is not None:
+            self.message = message
+
+        if code is not None:
+            self.code = code
+        if self.level == "number":
+            self.password_regex = lazy_re_compile(r"^\d{6}$", flags=re.IGNORECASE)
+        elif self.level == "char_normal":
+            self.password_regex = lazy_re_compile(r"^(?![0-9]+$)(?![a-zA-Z]+$)[0-9A-Za-z]{6,18}$", flags=re.IGNORECASE)
+        elif self.level == "char_english":
+            re_str = r"^(?![0-9]+$)(?![a-z]+$)(?![A-Z]+$)(?!([^(0-9a-zA-Z)]|[\(\)])+$)" \
+                     r"([^(0-9a-zA-Z)]|[\(\)]|[a-z]|[A-Z]|[0-9]){6,18}$"
+            self.password_regex = lazy_re_compile(re_str, flags=re.IGNORECASE)
+
+    def __call__(self, value):
+        valid = self.password_regex.match(value)
+
+        if not valid:
+            raise ValidationError(self.message[self.level], code=self.code)
+

@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import sys
 from importlib import import_module
 from collections import OrderedDict
 __author__ = 'caowenbin'
@@ -116,3 +117,28 @@ def flatten_choices_dict(choices):
             # choice (key, display value)
             ret[key] = value
     return ret
+
+
+def reraise(tp, value, tb=None):
+    if value is None:
+        value = tp()
+    if value.__traceback__ is not tb:
+        raise value.with_traceback(tb)
+    raise value
+
+
+def import_class_attribute(dotted_path):
+    try:
+        module_path, class_name = dotted_path.rsplit('.', 1)
+    except ValueError:
+        msg = "%s doesn't look like a module path" % dotted_path
+        reraise(ImportError, ImportError(msg), sys.exc_info()[2])
+
+    module = import_module(module_path)
+
+    try:
+        return getattr(module, class_name)
+    except AttributeError:
+        msg = 'Module "%s" does not define a "%s" attribute/class' % (
+            module_path, class_name)
+        reraise(ImportError, ImportError(msg), sys.exc_info()[2])

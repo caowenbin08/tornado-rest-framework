@@ -15,3 +15,6 @@ DATABASES = {
 
 # url根文件位置
 ROOT_URLCONF = 'urls'
+
+#表迁移model文件列表
+INSTALLED_APPS = []

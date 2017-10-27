@@ -10,16 +10,17 @@ import logging
 
 from rest_framework.exceptions import ValidationError
 from rest_framework.helpers import functional
+from rest_framework.helpers.hashers import get_hashers_by_algorithm, make_password
 from rest_framework.validators import MaxLengthValidator, MinLengthValidator, EmailValidator, RegexValidator, \
-    URLValidator, IPAddressValidator, MaxValueValidator, MinValueValidator
+    URLValidator, IPAddressValidator, MaxValueValidator, MinValueValidator, PasswordValidator
 
 __author__ = 'caowenbin'
 
 __all__ = [
     'empty', 'Field', 'BooleanField', 'NullBooleanField', 'CharField', 'EmailField',
     'RegexField', 'URLField', 'UUIDField', 'IPAddressField',
-    'IntegerField', 'FloatField', 'DateTimeField', 'DateField',
-    'TimeField',  'ChoiceField', 'MultipleChoiceField',  '_UnvalidatedField', 'ListField', 'JSONField'
+    'IntegerField', 'FloatField', 'DateTimeField', 'DateField', 'TimeField',  'ChoiceField',
+    'MultipleChoiceField',  '_UnvalidatedField', 'ListField', 'JSONField', 'PasswordField'
 ]
 rest_log = logging.getLogger("tornado.rest_framework")
 empty = object()
@@ -895,3 +896,48 @@ class JSONField(Field):
             if isinstance(value, str):
                 value = bytes(value.encode('utf-8'))
         return value
+
+
+class PasswordField(CharField):
+    """
+    密码字段类型
+    """
+    default_error_messages = {
+        'invalid': '请输入有效的密码'
+    }
+
+    def __init__(self, protection='default', level="number", *args, **kwargs):
+        """
+        :param protection: 密码加密方式
+               default 默认，取settings PASSWORD_HASHERS的第1个
+               pbkdf2_sha256
+               pbkdf2_sha1
+               argon2
+               bcrypt_sha256
+               bcrypt
+
+        :param level: 密码加密级别
+               number   6位数字密码
+               char_normal       6-18位英文数字混合密码
+               char_english     6-18位必须包含大小写字母/数字/符号任意两者组合密码
+        :param args:
+        :param kwargs:
+        """
+        if protection != "default":
+            assert protection in get_hashers_by_algorithm().keys(), "protection不正确"
+
+        assert level in ("number", "char_normal", "char_english"), "level不正确"
+        self.protection = protection.lower()
+        self.level = level.lower()
+
+        super(PasswordField, self).__init__(*args, **kwargs)
+
+        self.validators.append(PasswordValidator(self.level))
+
+    def to_internal_value(self, data):
+        if isinstance(data, bool) or not isinstance(data, (str, int, float,)):
+            self.fail('invalid')
+
+        value = str(data)
+
+        return make_password(value.strip()) if self.trim_whitespace else make_password(value)

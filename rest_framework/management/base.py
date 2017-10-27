@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
 import re
 import os
+import io
 import sys
+import stat
 import errno
 import shutil
 from argparse import ArgumentParser
 from os.path import join, basename
-
+from tornado import template
 from rest_framework import management
 
 PATTERN = re.compile('^[a-zA-Z]+[a-zA-Z_]*[a-zA-Z]$')
@@ -52,6 +54,8 @@ def handle_default_options(options):
 class BaseCommand(object):
     help = ''
     called_from_command_line = False
+    stdout = sys.stdout
+    stderr = sys.stderr
 
     def create_parser(self, process, command):
         """
@@ -126,29 +130,21 @@ class BaseCommand(object):
 
 class TemplateCommand(BaseCommand):
 
-    def __init__(self):
-        self.app_or_project = None
-        self.paths_to_remove = None
-        self.settings = None
+    rewrite_template_suffixes = (
+        ('.py.tpl', '.py'),
+    )
+    # 需要解析模板文件渲染参数的文件
+    extra_files = ("settings.py.tpl", )
 
     def add_arguments(self, parser):
         parser.add_argument('name', help='项目名或应用名')
         parser.add_argument('directory', nargs='?', help='所在目录')
 
-    @staticmethod
-    def templates_dir(app_or_project):
-        _templates_base_dir = join(management.__path__[0], 'templates')
-        return join(_templates_base_dir, app_or_project)
-
     def handle(self, app_or_project, name, target=None, **options):
-        # self.app_or_project = app_or_project
-        # self.paths_to_remove = []
-        # self.verbosity = options['verbosity']
-
         self.validate_name(name)
-        # 如果目标目录没有指定，则在当前目录下创建
+        # 如果目标目录没有指定，则在当前目录下加项目名创建
         if target is None:
-            top_dir = os.path.join(os.getcwd(), name)
+            top_dir = join(os.getcwd(), name)
             try:
                 os.makedirs(top_dir)
             except OSError as e:
@@ -156,43 +152,10 @@ class TemplateCommand(BaseCommand):
         else:
             top_dir = os.path.abspath(os.path.expanduser(target))
 
-            if not os.path.exists(top_dir):
-                raise CommandError("'%s'目录不存在，请先创建此目录" % top_dir)
+        if not os.path.exists(top_dir):
+            raise CommandError("'%s'目录不存在，请先创建此目录" % top_dir)
 
-        # extensions = tuple(handle_extensions(options['extensions']))
-        # extra_files = []
-        # for file in options['files']:
-        #     extra_files.extend(map(lambda x: x.strip(), file.split(',')))
-        # if self.verbosity >= 2:
-        #     self.stdout.write("Rendering %s template files with "
-        #                       "extensions: %s\n" %
-        #                       (app_or_project, ', '.join(extensions)))
-        #     self.stdout.write("Rendering %s template files with "
-        #                       "filenames: %s\n" %
-        #                       (app_or_project, ', '.join(extra_files)))
-
-        # base_name = '%s_name' % app_or_project
-        # base_subdir = '%s_template' % app_or_project
-        # base_directory = '%s_directory' % app_or_project
-        # camel_case_name = 'camel_case_%s_name' % app_or_project
-        # camel_case_value = ''.join(x for x in name.title() if x != '_')
-
-        # context = Context(dict(options, **{
-        #     base_name: name,
-        #     base_directory: top_dir,
-        #     camel_case_name: camel_case_value,
-        #     'docs_version': get_docs_version(),
-        #     'django_version': django.__version__,
-        #     'unicode_literals': '' if six.PY3 else '# -*- coding: utf-8 -*-\n'
-        #                                            'from __future__ import unicode_literals\n\n',
-        # }), autoescape=False)
-
-        # Setup a stub settings environment for template rendering
-        # if not settings.configured:
-        #     settings.configure()
-        #     django.setup()
-
-        template_dir = os.path.join(management.__path__[0], 'templates', app_or_project)
+        template_dir = join(management.__path__[0], 'templates', app_or_project)
         prefix_length = len(template_dir) + 1
 
         for root, dirs, files in os.walk(template_dir):
@@ -200,62 +163,41 @@ class TemplateCommand(BaseCommand):
             path_rest = root[prefix_length:]
             relative_dir = path_rest.replace(app_or_project, name)
             if relative_dir:
-                target_dir = os.path.join(top_dir, relative_dir)
+                target_dir = join(top_dir, relative_dir)
                 if not os.path.exists(target_dir):
                     os.mkdir(target_dir)
 
-            for dirname in dirs[:]:
-                if dirname.startswith('.') or dirname == '__pycache__':
-                    dirs.remove(dirname)
+            for dir_name in dirs[:]:
+                if dir_name.startswith('.') or dir_name == '__pycache__':
+                    dirs.remove(dir_name)
 
             for filename in files:
                 if filename.endswith(('.pyo', '.pyc', '.py.class')):
-                    # Ignore some files as they cause various breakages.
                     continue
-                old_path = os.path.join(root, filename)
-                new_path = os.path.join(top_dir, relative_dir, filename.replace(app_or_project, name))
-                print(old_path, "==new_path===", new_path)
-                # for old_suffix, new_suffix in self.rewrite_template_suffixes:
-                #     if new_path.endswith(old_suffix):
-                #         new_path = new_path[:-len(old_suffix)] + new_suffix
-                #         break  # Only rewrite once
+                old_path = join(root, filename)
+                new_path = join(top_dir, relative_dir, filename.replace(app_or_project, name))
 
-                if os.path.exists(new_path):
-                    raise CommandError("%s already exists, overlaying a "
-                                       "project or app into an existing "
-                                       "directory won't replace conflicting "
-                                       "files" % new_path)
+                for old_suffix, new_suffix in self.rewrite_template_suffixes:
+                    if new_path.endswith(old_suffix):
+                        new_path = new_path[:-len(old_suffix)] + new_suffix
+                        break
 
-                # Only render the Python files, as we don't want to
-                # accidentally render Django templates files
-                # if new_path.endswith(extensions) or filename in extra_files:
-                #     with io.open(old_path, 'r', encoding='utf-8') as template_file:
-                #         content = template_file.read()
-                #     template = Engine().from_string(content)
-                #     content = template.render(context)
-                #     with io.open(new_path, 'w', encoding='utf-8') as new_file:
-                #         new_file.write(content)
-                shutil.copyfile(old_path, new_path)
+                if filename in self.extra_files:
+                    with io.open(old_path, 'rb') as template_file:
+                        t = template.Template(template_file.read())
+                        content = t.generate(**options)
 
-                # if self.verbosity >= 2:
-                #     self.stdout.write("Creating %s\n" % new_path)
+                    with io.open(new_path, 'wb') as new_file:
+                        new_file.write(content)
+                else:
+
+                    shutil.copyfile(old_path, new_path)
+
                 try:
                     shutil.copymode(old_path, new_path)
                     self.make_writeable(new_path)
                 except OSError:
-                    self.stderr.write(
-                        "Notice: Couldn't set permission bits on %s. You're "
-                        "probably using an uncommon filesystem setup. No "
-                        "problem." % new_path, self.style.NOTICE)
-
-        # if self.paths_to_remove:
-        #     if self.verbosity >= 2:
-        #         self.stdout.write("Cleaning up temporary files.\n")
-        #     for path_to_remove in self.paths_to_remove:
-        #         if path.isfile(path_to_remove):
-        #             os.remove(path_to_remove)
-        #         else:
-        #             shutil.rmtree(path_to_remove)
+                    self.stderr.write("无法设置权限在{path}，请检查文件系统设置".format(path=new_path))
 
     @staticmethod
     def validate_name(name):
@@ -264,3 +206,18 @@ class TemplateCommand(BaseCommand):
 
         if not PATTERN.match(name):
             raise CommandError("项目(或应用)名必须由字母或下划线组成，但开头或结尾必须为字母")
+
+    @staticmethod
+    def make_writeable(filename):
+        """
+        确保文件是可写的
+        :param filename:
+        :return:
+        """
+        if sys.platform.startswith('java'):
+            return
+
+        if not os.access(filename, os.W_OK):
+            st = os.stat(filename)
+            new_permissions = stat.S_IMODE(st.st_mode) | stat.S_IWUSR
+            os.chmod(filename, new_permissions)
