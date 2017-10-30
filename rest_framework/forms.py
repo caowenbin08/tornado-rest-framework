@@ -1,20 +1,19 @@
 # -*- coding: utf-8 -*-
 import copy
 import traceback
-from collections import OrderedDict
+from collections import OrderedDict, Mapping
 
+from rest_framework.conf import settings
 from rest_framework.db import models
-from rest_framework.exceptions import ErrorDetail, ValidationError, SkipFieldError
-from rest_framework.fields import (
-    empty, Field, CharField, DateTimeField, IntegerField, BooleanField, FloatField,
-    DateField,  TimeField, UUIDField, ChoiceField
-)
+from rest_framework.exceptions import ErrorDetail, ValidationError
+from rest_framework.fields import *
 from rest_framework.helpers import functional, model_meta
 from rest_framework.helpers.cached_property import cached_property
 from rest_framework.helpers.field_mapping import ClassLookupDict
 from rest_framework.helpers.field_mapping import get_field_kwargs
 from rest_framework.helpers.serializer_utils import BindingDict, ReturnDict
 from rest_framework.fields import __all__ as fields_all
+from rest_framework.validators import UniqueTogetherValidator
 
 __author__ = 'caowenbin'
 
@@ -25,6 +24,11 @@ ALL_FIELDS = '__all__'
 class BaseForm(Field):
 
     def __init__(self, instance=None, data=empty, **kwargs):
+        """
+        :param instance: 待变更数据model对象 （从数据库查询）
+        :param data:  变更数据参数（字典结构）
+        :param kwargs:
+        """
         self.instance = instance
         if data is not empty:
             self.initial_data = data
@@ -34,6 +38,8 @@ class BaseForm(Field):
         self._data = None
         # self._validated_data = None
         self._errors = None
+        kwargs["null"] = True
+        kwargs["required"] = False
         super(BaseForm, self).__init__(**kwargs)
 
     def to_internal_value(self, data):
@@ -49,21 +55,8 @@ class BaseForm(Field):
         raise NotImplementedError('`create()` must be implemented.')
 
     def save(self, **kwargs):
-        assert not hasattr(self, 'save_object'), (
-            'Serializer `%s.%s` has old-style version 2 `.save_object()` '
-            'that is no longer compatible with REST framework 3. '
-            'Use the new-style `.create()` and `.update()` methods instead.' %
-            (self.__class__.__module__, self.__class__.__name__)
-        )
-
         assert hasattr(self, '_errors'), "没有显式调用执行`.is_valid()`"
         assert not self.errors, "存在无效的参数"
-
-        # assert not hasattr(self, '_data'), (
-        #     "You cannot call `.save()` after accessing `serializer.data`."
-        #     "If you need to access data before committing to the database then "
-        #     "inspect 'serializer.validated_data' instead. "
-        # )
 
         validated_data = dict(
             list(self.data.items()) +
@@ -84,13 +77,6 @@ class BaseForm(Field):
         return self.instance
 
     def is_valid(self, raise_exception=False):
-        assert not hasattr(self, 'restore_object'), (
-            'Serializer `%s.%s` has old-style version 2 `.restore_object()` '
-            'that is no longer compatible with REST framework 3. '
-            'Use the new-style `.create()` and `.update()` methods instead.' %
-            (self.__class__.__module__, self.__class__.__name__)
-        )
-
         assert hasattr(self, 'initial_data'), (
             'Cannot call `.is_valid()` as no `data=` keyword argument was '
             'passed when instantiating the serializer instance.'
@@ -98,7 +84,7 @@ class BaseForm(Field):
 
         if self._data is None:
             try:
-                self._data = self.run_validation(self.initial_data)
+                self._data = self.resolve_validation_data(self.initial_data)
             except ValidationError as exc:
                 self._data = {}
                 self._errors = exc.detail
@@ -109,21 +95,6 @@ class BaseForm(Field):
             raise ValidationError(self.errors)
 
         return not bool(self._errors)
-
-    # @property
-    # def data(self):
-    #     if hasattr(self, 'initial_data') and self._validated_data is None:
-    #         raise AssertionError("必须显式调用`.is_valid()`方可获取`data`")
-    #
-    #     if self._data is None:
-    #         if self.instance is not None and not getattr(self, '_errors', None):
-    #             self._data = self.to_representation(self.instance)
-    #         elif self._validated_data is not None and not getattr(self, '_errors', None):
-    #             self._data = self.to_representation(self.validated_data)
-    #         else:
-    #             self._data = self.get_initial()
-    #
-    #     return self._data
 
     @property
     def errors(self):
@@ -163,6 +134,30 @@ class FormMetaclass(type):
         return super(FormMetaclass, mcs).__new__(mcs, name, bases, attributes)
 
 
+def as_form_error(exc):
+    """
+    把字典或列表错误列表转成对应的字典结构
+    :param exc:
+    :return:
+    """
+    assert isinstance(exc, ValidationError)
+    detail = exc.detail
+
+    if isinstance(detail, Mapping):
+        return {
+            key: value if isinstance(value, (list, Mapping)) else [value]
+            for key, value in detail.items()
+        }
+    elif isinstance(detail, list):
+        return {
+            settings.FIELD_ERRORS_KEY: detail
+        }
+
+    return {
+        settings.FIELD_ERRORS_KEY: [detail]
+    }
+
+
 @functional.add_metaclass(FormMetaclass)
 class Form(BaseForm):
     default_error_messages = {
@@ -197,17 +192,6 @@ class Form(BaseForm):
         """
         return [field for field in self.fields.values() if (not field.read_only) or (field.default is not None)]
 
-    # @cached_property
-    # def _readable_fields(self):
-    #     """
-    #     返回只读字段列表
-    #     :return:
-    #     """
-    #     return [
-    #         field for field in self.fields.values()
-    #         if not field.write_only
-    #     ]
-
     def get_fields(self):
         """
         获得所有字段数据，类似{field_name: field_instance}
@@ -215,29 +199,14 @@ class Form(BaseForm):
         """
         return copy.deepcopy(self._declared_fields)
 
-    # def get_validators(self):
-    #     """
-    #     从Meta获取参数检查处理类列表
-    #     Returns a list of validator callables.
-    #     """
-    #     meta = getattr(self, 'Meta', None)
-    #     validators = getattr(meta, 'validators', None)
-    #     return validators[:] if validators else []
-
-    # def get_initial(self):
-    #     if hasattr(self, 'initial_data'):
-    #         return OrderedDict([
-    #             (field_name, field.get_value(self.initial_data))
-    #             for field_name, field in self.fields.items()
-    #             if (field.get_value(self.initial_data) is not empty) and
-    #             not field.read_only
-    #         ])
-    #
-    #     return OrderedDict([
-    #         (field.field_name, field.get_initial())
-    #         for field in self.fields.values()
-    #         if not field.read_only
-    #     ])
+    def get_validators(self):
+        """
+        从Meta中获取定义的校验函数列表
+        :return:
+        """
+        meta = getattr(self, 'Meta', None)
+        validators = getattr(meta, 'validators', None)
+        return validators[:] if validators else []
 
     def get_value(self, dictionary):
         """
@@ -247,8 +216,23 @@ class Form(BaseForm):
         """
         return dictionary.get(self.field_name, empty)
 
-    def run_validation(self, data=empty):
+    def resolve_validation_data(self, data=empty):
+        """
+        解析字段的值以及校验值的合格性，如果不合格则抛出对应的校验异常，反之对应的字段值，其可能是默认值
+        :param data:
+        :return:
+        """
+        is_empty_value, data = self.validate_empty_values(data)
+        # 如果值为空或默认值，则直接返回，不再执行值的约束条件判断方法
+        if is_empty_value:
+            return data
+
         value = self.to_internal_value(data)
+        try:
+            self.run_validators(value)
+        except ValidationError as exc:
+            raise ValidationError(detail=as_form_error(exc))
+
         return value
 
     def to_internal_value(self, data):
@@ -259,7 +243,6 @@ class Form(BaseForm):
         """
         ret = OrderedDict()
         errors = OrderedDict()
-        print("-----self._writable_fields-", self._writable_fields)
 
         for field in self._writable_fields:
             # 是否有自定义的检查方法
@@ -267,8 +250,8 @@ class Form(BaseForm):
             # 表单原始值
             primitive_value = field.get_value(data)
             try:
-                # 检查之后的值，可能是默认值
-                validated_value = field.run_validation(primitive_value)
+                # 解析字段的值以及校验值的合格性，如果不合格则抛出对应的校验异常，反之对应的字段值，其可能是默认值
+                validated_value = field.resolve_validation_data(primitive_value)
 
                 if validate_method is not None:
                     validated_value = validate_method(validated_value)
@@ -284,34 +267,9 @@ class Form(BaseForm):
 
         return ret
 
-    # def to_representation(self, instance):
-    #     """
-    #     Object instance -> Dict of primitive datatypes.
-    #     """
-    #     ret = OrderedDict()
-    #     print("----self._readable_fields-", self._readable_fields)
-    #     for field in self._readable_fields:
-    #         try:
-    #             attribute = field.get_attribute(instance)
-    #         except SkipFieldError:
-    #             continue
-    #
-    #         ret[field.field_name] = None if attribute is None else field.to_representation(attribute)
-    #
-    #     return ret
-
-    # @staticmethod
-    # def validate(attributes):
-    #     return attributes
-
     def __iter__(self):
         for field in self.fields.values():
             yield self[field.field_name]
-
-    # @property
-    # def data(self):
-    #     ret = super(Form, self).data
-    #     return ReturnDict(ret, serializer=self)
 
     @property
     def errors(self):
@@ -347,7 +305,6 @@ class ModelForm(Form):
         models.UUIDField: UUIDField,
     }
     form_choice_field = ChoiceField
-    # url_field_name = None
 
     def raise_errors_on_nested_writes(self, method_name, validated_data):
         """
@@ -444,6 +401,39 @@ class ModelForm(Form):
 
         return instance
 
+    def get_validators(self):
+        """
+        确定校验时使用Meta的validators列表
+        :return:
+        """
+        validators = getattr(getattr(self, 'Meta', None), 'validators', [])
+        assert isinstance(validators, (tuple, list)), "`Meta.validators`的结构必须为tuple或list"
+        unique_together_validators = self.get_unique_together_validators()
+        unique_together_validators.extend(validators)
+        return unique_together_validators
+
+    def get_unique_together_validators(self):
+        """
+        获取Model的`Meta.indexes`中定义的唯一索引列表
+        :return:
+        """
+        # 获得 `Meta.indexes`中定义的唯一索引
+        indexes = getattr(getattr(self.Meta.model, "_meta", None), "indexes", [])
+        model_unique_together_list = (index[0] for index in indexes if index[1] is True)
+        field_names = {
+            field.source for field in self._writable_fields
+            if (field.source != '*') and ('.' not in field.source)
+        }
+        validators = []
+        for unique_together in model_unique_together_list:
+            if field_names.issuperset(unique_together):
+                validator = UniqueTogetherValidator(
+                    queryset=self.Meta.model.select(),
+                    fields=unique_together
+                )
+                validators.append(validator)
+        return validators
+
     def get_fields(self):
         """
         返回所有字段的数据
@@ -465,19 +455,67 @@ class ModelForm(Form):
         # 检索元数据字段和关系模型类
         info = model_meta.get_field_info(model)
         field_names = self.get_field_names(declared_fields, info)
+        extra_kwargs = self.get_extra_kwargs()
+
         fields = OrderedDict()
 
         for field_name in field_names:
-            # If the field is explicitly declared on the class then use that.
+            # 如果字段在类上显式声明，则直接使用
             if field_name in declared_fields:
                 fields[field_name] = declared_fields[field_name]
                 continue
 
-            source = field_name
+            extra_field_kwargs = extra_kwargs.get(field_name, {})
+            source = extra_field_kwargs.get('source') or field_name
             field_class, field_kwargs = self.build_field(source, info, model, depth)
+            field_kwargs = self.include_extra_kwargs(field_kwargs, extra_field_kwargs)
             fields[field_name] = field_class(**field_kwargs)
 
         return fields
+
+    @staticmethod
+    def include_extra_kwargs(kwargs, extra_kwargs):
+        """
+        删除任何不兼容的现有关键字参数
+        :param kwargs: 字段本身的关键参数
+        :param extra_kwargs:  `Meta.extra_kwargs`定义的字段扩展关键参数
+        :return:
+        """
+        if extra_kwargs.get('read_only', False):
+            for attr in ['required', 'default', 'null', 'min_length',
+                         'max_length', 'min_value', 'max_value', 'validators']:
+                kwargs.pop(attr, None)
+
+        if extra_kwargs.get('default') and kwargs.get('required') is False:
+            kwargs.pop('required')
+
+        if extra_kwargs.get('read_only', kwargs.get('read_only', False)):
+            extra_kwargs.pop('required', None)
+
+        kwargs.update(extra_kwargs)
+
+        return kwargs
+
+    def get_extra_kwargs(self):
+        """
+        获得表单的字段扩展参数以及解析只读字段标识
+        返回字段与字段参数组成的字典结构
+        """
+        extra_kwargs = copy.deepcopy(getattr(self.Meta, 'extra_kwargs', {}))
+        read_only_fields = getattr(self.Meta, 'read_only_fields', None)
+        if read_only_fields is not None:
+            if not isinstance(read_only_fields, (list, tuple)):
+                raise TypeError(
+                    'The `read_only_fields` option must be a list or tuple. '
+                    'Got %s.' % type(read_only_fields).__name__
+                )
+
+            for field_name in read_only_fields:
+                kwargs = extra_kwargs.get(field_name, {})
+                kwargs['read_only'] = True
+                extra_kwargs[field_name] = kwargs
+
+        return extra_kwargs
 
     def get_field_names(self, declared_fields, info):
         """

@@ -4,10 +4,7 @@ import inspect
 from collections import OrderedDict
 
 from rest_framework.db import models
-from rest_framework.fields import (
-    Field, CharField, DateTimeField, IntegerField, BooleanField, FloatField,
-    DateField,  TimeField, UUIDField
-)
+from rest_framework.fields import *
 
 from rest_framework.helpers import functional, model_meta
 from rest_framework.helpers.cached_property import cached_property

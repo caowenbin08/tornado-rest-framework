@@ -77,7 +77,7 @@ class ErrorDetail(str):
 
 class ValidationError(Exception):
     status_code = status.HTTP_400_BAD_REQUEST
-    default_detail = 'Invalid input.'
+    default_detail = '非法请求参数'
     default_code = 'invalid'
 
     def __init__(self, detail, code=None):
@@ -86,7 +86,7 @@ class ValidationError(Exception):
         if code is None:
             code = self.default_code
 
-        if not isinstance(detail, dict) and not isinstance(detail, list):
+        if not isinstance(detail, (dict, list)):
             detail = [detail]
 
         self.detail = _get_error_details(detail, code)

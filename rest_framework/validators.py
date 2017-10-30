@@ -4,6 +4,7 @@ import re
 import socket
 from urllib.parse import urlsplit, urlunsplit
 
+from rest_framework.db import models
 from rest_framework.exceptions import ValidationError
 from rest_framework.helpers.encoding import force_text
 from rest_framework.helpers.lazy import lazy_re_compile
@@ -500,6 +501,96 @@ class UniqueValidator(object):
     #         self.__class__.__name__,
     #         smart_repr(self.queryset)
     #     )
+
+
+def qs_exists(queryset):
+    try:
+        return queryset.exists()
+    except (TypeError, ValueError, models.DataError):
+        return False
+
+
+def qs_filter(queryset, **kwargs):
+    try:
+        return queryset.filter(**kwargs)
+    except (TypeError, ValueError, models.DataError):
+        if isinstance(queryset, models.SelectQuery):
+            return queryset.model_class.noop()
+        else:
+            return queryset.noop()
+
+
+class UniqueTogetherValidator(object):
+    """
+    联合唯一索引校验，主要作用于Model的`Meta.indexes`中定义的唯一索引列表
+    """
+    message = '资源数据已经存在，可能由字段（{field_names})组成的唯一索引集导致'
+    missing_message = "该字段必须输入值"
+
+    def __init__(self, queryset, fields, message=None):
+        self.queryset = queryset
+        self.fields = fields
+        self.message = message or self.message
+        self.instance = None
+
+    def set_context(self, form):
+        """
+        这个钩子由表单程序实例调用，并在进行验证调用之前
+        :param form:
+        :return:
+        """
+        self.instance = getattr(form, 'instance', None)
+
+    def enforce_required_fields(self, req_params):
+        if self.instance is not None:
+            return
+
+        missing_items = {
+            field_name: self.missing_message
+            for field_name in self.fields
+            if field_name not in req_params
+        }
+        if missing_items:
+            raise ValidationError(missing_items, code='required')
+
+    def filter_queryset(self, req_params, queryset):
+        if self.instance is not None:
+            for field_name in self.fields:
+                if field_name not in req_params:
+                    req_params[field_name] = getattr(self.instance, field_name)
+
+        filter_kwargs = {
+            field_name: req_params[field_name]
+            for field_name in self.fields
+        }
+
+        return qs_filter(queryset, **filter_kwargs)
+
+    def exclude_current_instance(self, queryset):
+        if self.instance is not None:
+            pk = getattr(self.instance, "_meta").primary_key
+            return queryset.filter(getattr(self.instance, "_meta").primary_key != pk.value)
+
+        return queryset
+
+    def __call__(self, req_params):
+        self.enforce_required_fields(req_params)
+        queryset = self.queryset
+        queryset = self.filter_queryset(req_params, queryset)
+        queryset = self.exclude_current_instance(queryset)
+        checked_values = [value for field, value in req_params.items() if field in self.fields]
+
+        if None not in checked_values and qs_exists(queryset):
+            field_names = ', '.join(self.fields)
+            message = self.message.format(field_names=field_names)
+            raise ValidationError(message, code='unique')
+
+    def __repr__(self):
+        return '<%s(queryset=%s, fields=%s)>' % (
+            self.__class__.__name__,
+            str(self.queryset),
+            str(self.fields)
+        )
 
 
 class PasswordValidator(object):

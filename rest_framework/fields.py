@@ -65,7 +65,7 @@ class Field(object):
         self.source = source
         self.null = null
         self.read_only = read_only
-        self._validators = []
+        self._validators = None
 
         if validators is not None:
             self.validators = validators[:]
@@ -113,7 +113,7 @@ class Field(object):
 
     @property
     def validators(self):
-        if not hasattr(self, '_validators'):
+        if self._validators is None:
             self._validators = self.get_validators()
         return self._validators
 
@@ -130,34 +130,10 @@ class Field(object):
         :param dictionary:
         :return:
         """
-        return dictionary.get(self.field_name, empty)
+        if dictionary is None:
+            dictionary = {}
 
-    # def get_attribute(self, instance):
-    #     """
-    #     Given the *outgoing* object instance, return the primitive value
-    #     that should be used for this field.
-    #     """
-    #     try:
-    #         return get_attribute(instance, self.source_attrs)
-    #     except (KeyError, AttributeError) as exc:
-    #         if self.default is not empty:
-    #             return self.get_default()
-    #         if not self.required:
-    #             raise SkipField()
-    #         msg = (
-    #             'Got {exc_type} when attempting to get a value for field '
-    #             '`{field}` on serializer `{serializer}`.\nThe serializer '
-    #             'field might be named incorrectly and not match '
-    #             'any attribute or key on the `{instance}` instance.\n'
-    #             'Original exception text was: {exc}.'.format(
-    #                 exc_type=type(exc).__name__,
-    #                 field=self.field_name,
-    #                 serializer=self.parent.__class__.__name__,
-    #                 instance=instance.__class__.__name__,
-    #                 exc=exc
-    #             )
-    #         )
-    #         raise type(exc)(msg)
+        return dictionary.get(self.field_name, empty)
 
     def get_default(self):
         """
@@ -202,14 +178,14 @@ class Field(object):
     def to_internal_value(self, data):
         raise NotImplementedError('`to_internal_value()` must be implemented.')
 
-    def run_validation(self, data=empty):
+    def resolve_validation_data(self, data=empty):
         """
-        执行约束条件或约束方法
+        解析字段的值以及校验值的合格性，如果不合格则抛出对应的校验异常，反之对应的字段值，其可能是默认值
         :param data:
         :return:
         """
         is_empty_value, data = self.validate_empty_values(data)
-
+        # 如果值为空或默认值，则直接返回，不再执行值的约束条件判断方法
         if is_empty_value:
             return data
 
@@ -220,7 +196,7 @@ class Field(object):
 
     def run_validators(self, value):
         """
-        约束方法检查
+        执行字段对应的约束方法
         :param value:
         :return:
         """
@@ -232,6 +208,8 @@ class Field(object):
             try:
                 validator(value)
             except ValidationError as exc:
+                if isinstance(exc.detail, dict):
+                    raise
                 errors.extend(exc.detail)
 
         if errors:
@@ -852,7 +830,7 @@ class ListField(Field):
             self.fail('not_a_list', input_type=type(data).__name__)
         if not self.allow_empty and len(data) == 0:
             self.fail('empty')
-        return [self.child.run_validation(item) for item in data]
+        return [self.child.resolve_validation_data(item) for item in data]
 
     def to_representation(self, data):
         """
@@ -909,35 +887,43 @@ class PasswordField(CharField):
     def __init__(self, protection='default', level="number", *args, **kwargs):
         """
         :param protection: 密码加密方式
-               default 默认，取settings PASSWORD_HASHERS的第1个
-               pbkdf2_sha256
-               pbkdf2_sha1
-               argon2
-               bcrypt_sha256
-               bcrypt
+                           default 默认，取settings PASSWORD_HASHERS的第1个
+                           pbkdf2_sha256
+                           pbkdf2_sha1
+                           argon2
+                           bcrypt_sha256
+                           bcrypt
 
         :param level: 密码加密级别
-               number   6位数字密码
-               char_normal       6-18位英文数字混合密码
-               char_english     6-18位必须包含大小写字母/数字/符号任意两者组合密码
+                       number   6位数字密码
+                       char_normal       6-18位英文数字混合密码
+                       char_english     6-18位必须包含大小写字母/数字/符号任意两者组合密码
         :param args:
         :param kwargs:
         """
         if protection != "default":
             assert protection in get_hashers_by_algorithm().keys(), "protection不正确"
-
         assert level in ("number", "char_normal", "char_english"), "level不正确"
         self.protection = protection.lower()
         self.level = level.lower()
-
         super(PasswordField, self).__init__(*args, **kwargs)
-
         self.validators.append(PasswordValidator(self.level))
 
-    def to_internal_value(self, data):
-        if isinstance(data, bool) or not isinstance(data, (str, int, float,)):
-            self.fail('invalid')
+    def resolve_validation_data(self, data=empty):
+        """
+        解析字段的值以及校验值的合格性，
+        如果不合格则抛出对应的校验异常，反之加密密码
+        :param data:
+        :return:
+        """
+        is_empty_value, value = self.validate_empty_values(data)
+        # 如果值为空或默认值，则直接返回，不再执行值的约束条件判断方法
+        if not is_empty_value:
+            value = self.to_internal_value(data)
+            self.run_validators(value)
 
-        value = str(data)
+        return make_password(password=value, hasher=self.protection)
 
-        return make_password(value.strip()) if self.trim_whitespace else make_password(value)
+    def to_representation(self, value):
+        return "*" * 6
+

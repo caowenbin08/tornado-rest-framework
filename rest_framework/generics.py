@@ -1,14 +1,13 @@
 # -*- coding: utf-8 -*-
 import traceback
-
-import peewee
 from tornado import gen
 from tornado import iostream
-from tornado.escape import json_decode
+from tornado.escape import json_decode, json_encode
 from tornado.log import app_log
 from tornado.web import RequestHandler, HTTPError
 
 from rest_framework import mixins
+from rest_framework.db import models
 from rest_framework.conf import settings
 from rest_framework.exceptions import APIException
 from rest_framework.helpers import status
@@ -40,9 +39,11 @@ class BaseAPIHandler(RequestHandler):
         pass
 
     def prepare(self):
-
+        """
+        继承重写，主要解析json数据，请求可以直接self.json_data获取请求数据
+        :return:
+        """
         self._load_data_and_files()
-        print("-------prepareprepareprepare-----", self.json_data)
         return super(BaseAPIHandler, self).prepare()
 
     def _load_data_and_files(self):
@@ -133,11 +134,26 @@ class BaseAPIHandler(RequestHandler):
                     self.write(line)
             self.finish()
         else:
-            self.finish("<html><title>%(code)d: %(message)s</title>"
-                        "<body>%(code)d: %(message)s</body></html>" % {
-                            "code": status_code,
-                            "message": self._reason,
-                        })
+            debug = self.settings.get("debug", False)
+            if debug:
+                self.finish("<html><title>%(code)d: %(message)s</title>"
+                            "<body>%(code)d: %(message)s</body></html>" % {
+                                "code": status_code,
+                                "message": self._reason,
+                            })
+            else:
+                self.set_header('Content-Type', "application/json")
+                if status_code == status.HTTP_500_INTERNAL_SERVER_ERROR:
+                    message = "系统出现异常，请检看运行日志"
+                elif status_code == status.HTTP_404_NOT_FOUND:
+                    message = "资源不存在，请检查资源标识是否正确"
+                elif status_code == status.HTTP_401_UNAUTHORIZED:
+                    message = "访问权限不足"
+                else:
+                    message = self._reason
+
+                self.write(json_encode(dict(return_code=-1, return_msg=message)))
+                self.finish()
 
     def finalize_response(self, response, *args, **kwargs):
         if not isinstance(response, Response):
@@ -169,7 +185,7 @@ class GenericAPIHandler(BaseAPIHandler):
     need_obj_serializer = False
     # 检查参数不正确是否抛出异常， False代表为抛出 True代表直接抛出ValidationError
     form_valid_raise_except = False
-    # 定义抛出404的错误信息，可以是字典或字符串，桔子：{"return_code": "资源不存在", "return_msg": "资源不存在"}
+    # 定义抛出404的错误信息，可以是字典或字符串，桔子：{"return_code": -1, "return_msg": "资源不存在"}
     error_msg_404 = None
 
     def get_queryset(self, queryset=None):
@@ -185,7 +201,7 @@ class GenericAPIHandler(BaseAPIHandler):
             % self.__class__.__name__
         )
 
-        if not isinstance(queryset, peewee.SelectQuery) and issubclass(queryset, peewee.Model):
+        if not isinstance(queryset, models.SelectQuery) and issubclass(queryset, models.Model):
             queryset = queryset.select()
         return queryset
 

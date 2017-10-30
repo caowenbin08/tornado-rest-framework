@@ -117,13 +117,20 @@ def identify_hasher(encoded_password):
     return get_hasher(algorithm)
 
 
-def mask_hash_val(hash_val, show=6, char="*"):
-    masked = hash_val[:show]
-    masked += char * len(hash_val[show:])
+def mask_password(encoded_password, show=6, char="*"):
+    """
+    掩饰密码hash显示
+    :param encoded_password:
+    :param show:
+    :param char:
+    :return:
+    """
+    masked = encoded_password[:show]
+    masked += char * len(encoded_password[show:])
     return masked
 
 
-class BasePasswordhasher(object):
+class BasePasswordHasher(object):
     """
     密码加密抽象类
     子类必须覆盖verify()、 encode()、 safe_summary()
@@ -154,13 +161,13 @@ class BasePasswordhasher(object):
         """
         检查密码正确性
         """
-        raise NotImplementedError('subclasses of BasePasswordhasher must provide a verify() method')
+        raise NotImplementedError('subclasses of BasePasswordHasher must provide a verify() method')
 
     def encode(self, password, salt):
         """
         加密
         """
-        raise NotImplementedError('subclasses of BasePasswordhasher must provide an encode() method')
+        raise NotImplementedError('subclasses of BasePasswordHasher must provide an encode() method')
 
     def safe_summary(self, encoded_password):
         """
@@ -170,16 +177,16 @@ class BasePasswordhasher(object):
         :param encoded_password:
         :return:
         """
-        raise NotImplementedError('subclasses of BasePasswordhasher must provide a safe_summary() method')
+        raise NotImplementedError('subclasses of BasePasswordHasher must provide a safe_summary() method')
 
     def must_update(self, encoded_password):
         return False
 
     def harden_runtime(self, password, encoded_password):
-        warnings.warn('subclasses of BasePasswordhasher should provide a harden_runtime() method')
+        warnings.warn('subclasses of BasePasswordHasher should provide a harden_runtime() method')
 
 
-class PBKDF2Passwordhasher(BasePasswordhasher):
+class PBKDF2PasswordHasher(BasePasswordHasher):
     """
     安全的密码hash_valing使用PBKDF2算法（推荐）
     配置为使用PBKDF2 HMAC SHA256。
@@ -211,8 +218,8 @@ class PBKDF2Passwordhasher(BasePasswordhasher):
         return OrderedDict([
             ('algorithm', algorithm),
             ('iterations', iterations),
-            ('salt', mask_hash_val(salt)),
-            ('hash', mask_hash_val(hash_val)),
+            ('salt', mask_password(salt)),
+            ('hash', mask_password(hash_val)),
         ])
 
     def must_update(self, encoded_password):
@@ -226,7 +233,7 @@ class PBKDF2Passwordhasher(BasePasswordhasher):
             self.encode(password, salt, extra_iterations)
 
 
-class PBKDF2SHA1Passwordhasher(PBKDF2Passwordhasher):
+class PBKDF2SHA1PasswordHasher(PBKDF2PasswordHasher):
     """
     交替使用PBKDF2和SHA1，默认频率通过PKCS 5推荐。这与其他兼容。
     实现PBKDF2，如OpenSSL的pkcs5_pbkdf2_hmac_sha1()。
@@ -235,7 +242,7 @@ class PBKDF2SHA1Passwordhasher(PBKDF2Passwordhasher):
     digest = hashlib.sha1
 
 
-class Argon2Passwordhasher(BasePasswordhasher):
+class Argon2PasswordHasher(BasePasswordHasher):
     """
     安全的密码哈希算法使用argon2。
     这是密码散列大赛2013-2015年冠军
@@ -286,8 +293,8 @@ class Argon2Passwordhasher(BasePasswordhasher):
             ('memory cost', memory_cost),
             ('time cost', time_cost),
             ('parallelism', parallelism),
-            ('salt', mask_hash_val(salt)),
-            ('hash', mask_hash_val(data)),
+            ('salt', mask_password(salt)),
+            ('hash', mask_password(data)),
         ])
 
     def must_update(self, encoded_password):
@@ -328,7 +335,7 @@ class Argon2Passwordhasher(BasePasswordhasher):
         )
 
 
-class BCryptSHA256Passwordhasher(BasePasswordhasher):
+class BCryptSHA256PasswordHasher(BasePasswordHasher):
     """
     安全的密码哈希算法使用BCrypt（推荐）这被许多人认为是最安全的算法，但你必须先安装BCrypt的库包。
     请注意此库依赖于本机C代码，可能会导致可移植性问题.
@@ -365,8 +372,8 @@ class BCryptSHA256Passwordhasher(BasePasswordhasher):
         return OrderedDict([
             ('algorithm', algorithm),
             ('work factor', work_factor),
-            ('salt', mask_hash_val(salt)),
-            ('checksum', mask_hash_val(checksum)),
+            ('salt', mask_password(salt)),
+            ('checksum', mask_password(checksum)),
         ])
 
     def must_update(self, encoded_password):
@@ -384,12 +391,12 @@ class BCryptSHA256Passwordhasher(BasePasswordhasher):
             diff -= 1
 
 
-class BCryptPasswordhasher(BCryptSHA256Passwordhasher):
+class BCryptPasswordHasher(BCryptSHA256PasswordHasher):
     algorithm = "bcrypt"
     digest = None
 
 
-class SHA1Passwordhasher(BasePasswordhasher):
+class SHA1PasswordHasher(BasePasswordHasher):
 
     algorithm = "sha1"
 
@@ -410,15 +417,15 @@ class SHA1Passwordhasher(BasePasswordhasher):
         assert algorithm == self.algorithm
         return OrderedDict([
             ('algorithm', algorithm),
-            ('salt', mask_hash_val(salt, show=2)),
-            ('hash', mask_hash_val(hash_val)),
+            ('salt', mask_password(salt, show=2)),
+            ('hash', mask_password(hash_val)),
         ])
 
     def harden_runtime(self, password, encoded_password):
         pass
 
 
-class MD5Passwordhasher(BasePasswordhasher):
+class MD5PasswordHasher(BasePasswordHasher):
 
     algorithm = "md5"
 
@@ -439,15 +446,15 @@ class MD5Passwordhasher(BasePasswordhasher):
         assert algorithm == self.algorithm
         return OrderedDict([
             ('algorithm', algorithm),
-            ('salt', mask_hash_val(salt, show=2)),
-            ('hash', mask_hash_val(hash_val)),
+            ('salt', mask_password(salt, show=2)),
+            ('hash', mask_password(hash_val)),
         ])
 
     def harden_runtime(self, password, encoded_password):
         pass
 
 
-class UnsaltedSHA1Passwordhasher(BasePasswordhasher):
+class UnsaltedSHA1PasswordHasher(BasePasswordHasher):
 
     algorithm = "unsalted_sha1"
 
@@ -468,14 +475,14 @@ class UnsaltedSHA1Passwordhasher(BasePasswordhasher):
         hash_val = encoded_password[6:]
         return OrderedDict([
             ('algorithm', self.algorithm),
-            ('hash', mask_hash_val(hash_val)),
+            ('hash', mask_password(hash_val)),
         ])
 
     def harden_runtime(self, password, encoded_password):
         pass
 
 
-class UnsaltedMD5Passwordhasher(BasePasswordhasher):
+class UnsaltedMD5PasswordHasher(BasePasswordHasher):
 
     algorithm = "unsalted_md5"
 
@@ -495,14 +502,14 @@ class UnsaltedMD5Passwordhasher(BasePasswordhasher):
     def safe_summary(self, encoded_password):
         return OrderedDict([
             ('algorithm', self.algorithm),
-            ('hash', mask_hash_val(encoded_password, show=3)),
+            ('hash', mask_password(encoded_password, show=3)),
         ])
 
     def harden_runtime(self, password, encoded_password):
         pass
 
 
-class CryptPasswordhasher(BasePasswordhasher):
+class CryptPasswordHasher(BasePasswordHasher):
 
     algorithm = "crypt"
     library = "crypt"
@@ -513,7 +520,7 @@ class CryptPasswordhasher(BasePasswordhasher):
     def encode(self, password, salt):
         crypt = self._load_library()
         assert len(salt) == 2
-        data = crypt.crypt(force_str(password), salt)
+        data = crypt.crypt(force_text(password), salt)
         assert data is not None  # A platform like OpenBSD with a dummy crypt module.
         # we don't need to store the salt, but Django used to do this
         return "%s$%s$%s" % (self.algorithm, '', data)
@@ -522,7 +529,7 @@ class CryptPasswordhasher(BasePasswordhasher):
         crypt = self._load_library()
         algorithm, salt, data = encoded_password.split('$', 2)
         assert algorithm == self.algorithm
-        return constant_time_compare(data, crypt.crypt(force_str(password), data))
+        return constant_time_compare(data, crypt.crypt(force_text(password), data))
 
     def safe_summary(self, encoded_password):
         algorithm, salt, data = encoded_password.split('$', 2)
@@ -530,7 +537,7 @@ class CryptPasswordhasher(BasePasswordhasher):
         return OrderedDict([
             ('algorithm', algorithm),
             ('salt', salt),
-            ('hash', mask_hash_val(data, show=3)),
+            ('hash', mask_password(data, show=3)),
         ])
 
     def harden_runtime(self, password, encoded_password):
