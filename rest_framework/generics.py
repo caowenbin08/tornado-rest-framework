@@ -195,6 +195,8 @@ class GenericAPIHandler(BaseAPIHandler):
         :return:
         """
         queryset = queryset if queryset is not None else self.queryset
+        if queryset is None:
+            queryset = getattr(self.form_class.Meta, "model")
         assert queryset is not None, (
             "'%s' should either include a `queryset` attribute, "
             "or override the `get_queryset()` method."

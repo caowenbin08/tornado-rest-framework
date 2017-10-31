@@ -2,7 +2,7 @@
 from tornado.web import HTTPError
 
 from rest_framework.helpers import status
-from rest_framework.helpers.serializer_utils import ReturnDict
+# from rest_framework.helpers.serializer_utils import ReturnDict
 
 __author__ = 'caowenbin'
 
@@ -38,8 +38,8 @@ def _get_error_details(data, default_code=None):
             key: _get_error_details(value, default_code)
             for key, value in data.items()
         }
-        if isinstance(data, ReturnDict):
-            return ReturnDict(ret, serializer=data.serializer)
+        # if isinstance(data, ReturnDict):
+        #     return ReturnDict(ret, serializer=data.serializer)
         return ret
 
     text = force_text(data)

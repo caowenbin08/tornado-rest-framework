@@ -9,7 +9,6 @@ from rest_framework.fields import *
 from rest_framework.helpers import functional, model_meta
 from rest_framework.helpers.cached_property import cached_property
 from rest_framework.helpers.field_mapping import ClassLookupDict
-from rest_framework.helpers.serializer_utils import BindingDict, ReturnDict, ReturnList
 from rest_framework.fields import __all__ as fields_all
 
 __all__ = ['Serializer', 'ModelSerializer'] + fields_all
@@ -101,7 +100,7 @@ class Serializer(BaseSerializer):
         返回字典结构
         类似：{field_name: field_instance}
         """
-        _fields = BindingDict(self)
+        _fields = functional.BindingDict(self)
         for key, value in self.get_fields().items():
             _fields[key] = value
         return _fields.values()
@@ -136,7 +135,8 @@ class Serializer(BaseSerializer):
     @property
     def data(self):
         ret = super(Serializer, self).data
-        return ReturnDict(ret, serializer=self)
+        return ret
+        # return functional.ReturnDict(ret, serializer=self)
 
 
 class ModelSerializer(Serializer):
@@ -404,6 +404,7 @@ class ListSerializer(BaseSerializer):
     @property
     def data(self):
         ret = super(ListSerializer, self).data
-        return ReturnList(ret, serializer=self)
+        return ret
+        # return functional.ReturnList(ret, serializer=self)
 
 

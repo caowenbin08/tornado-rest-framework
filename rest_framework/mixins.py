@@ -10,11 +10,20 @@ class CreateModelMixin(object):
     """
     创建
     """
+    def perform_create(self, form):
+        """
+        :param form:
+        :return:
+        """
+        instance = form.save()
+        return instance
+
     def create(self, *args, **kwargs):
         form = self.get_form(data=self.json_data)
 
         if form.is_valid(raise_exception=self.form_valid_raise_except):
-            instance = form.save()
+            instance = self.perform_create(form)
+
             if self.need_obj_serializer:
                 self.create_serializer(form)
                 serializer = self.get_serializer(instance=instance)
@@ -80,7 +89,7 @@ class UpdateModelMixin(object):
         form = self.get_form(instance=instance, data=self.json_data)
 
         if form.is_valid(raise_exception=self.form_valid_raise_except):
-            instance = form.save()
+            instance = self.perform_update(form)
             if self.need_obj_serializer:
                 self.create_serializer(form)
                 serializer = self.get_serializer(instance=instance)
@@ -92,6 +101,10 @@ class UpdateModelMixin(object):
             return self.write_response(data=result, status_code=status.HTTP_200_OK)
 
         return self.write_response(data=form.errors, status_code=status.HTTP_400_BAD_REQUEST)
+
+    def perform_update(self, form):
+        instance = form.save()
+        return instance
 
     def create_serializer(self, form):
         """
@@ -116,6 +129,9 @@ class DestroyModelMixin(object):
     """
     def destroy(self, *args, **kwargs):
         instance = self.get_object()
-        del_rows = instance.delete_instance()
+        del_rows = self.perform_destroy(instance)
         return self.write_response(data=dict(rows=del_rows), status_code=status.HTTP_200_OK)
 
+    def perform_destroy(self, instance):
+        del_rows = instance.delete_instance()
+        return del_rows

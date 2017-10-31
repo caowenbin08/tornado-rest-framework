@@ -8,17 +8,18 @@ import re
 import uuid
 import logging
 
+from rest_framework.helpers import functional, hashers
 from rest_framework.exceptions import ValidationError
-from rest_framework.helpers import functional
-from rest_framework.helpers.hashers import get_hashers_by_algorithm, make_password
-from rest_framework.validators import MaxLengthValidator, MinLengthValidator, EmailValidator, RegexValidator, \
-    URLValidator, IPAddressValidator, MaxValueValidator, MinValueValidator, PasswordValidator
+from rest_framework.validators import (
+    MaxLengthValidator, MinLengthValidator, EmailValidator,  URLValidator, IPAddressValidator,
+    MaxValueValidator, MinValueValidator, PasswordValidator, IdentifierValidator
+)
 
 __author__ = 'caowenbin'
 
 __all__ = [
     'empty', 'Field', 'BooleanField', 'NullBooleanField', 'CharField', 'EmailField',
-    'RegexField', 'URLField', 'UUIDField', 'IPAddressField',
+    'RegexField', 'URLField', 'UUIDField', 'IPAddressField', "IdentifierField",
     'IntegerField', 'FloatField', 'DateTimeField', 'DateField', 'TimeField',  'ChoiceField',
     'MultipleChoiceField',  '_UnvalidatedField', 'ListField', 'JSONField', 'PasswordField'
 ]
@@ -387,12 +388,12 @@ class CharField(Field):
         null = kwargs.get("null", False)
         assert not (null is True and self.min_length not in (None, 0)), "不能同时设置`null`和`min_length`"
         super(CharField, self).__init__(*args, **kwargs)
+        
+        if self.min_length is not None:
+            self.validators.append(MinLengthValidator(self.min_length))
 
         if self.max_length is not None:
             self.validators.append(MaxLengthValidator(self.max_length))
-
-        if self.min_length is not None:
-            self.validators.append(MinLengthValidator(self.min_length))
 
     def to_internal_value(self, data):
         if isinstance(data, bool) or not isinstance(data, (str, int, float,)):
@@ -429,7 +430,7 @@ class RegexField(CharField):
 
     def __init__(self, regex, *args, **kwargs):
         super(RegexField, self).__init__(*args, **kwargs)
-        validator = RegexValidator(regex=regex, message=self.error_messages['invalid'])
+        validator = validators.RegexValidator(regex=regex, message=self.error_messages['invalid'])
         self.validators.append(validator)
 
 
@@ -526,13 +527,13 @@ class IntegerField(Field):
         self.min_value = kwargs.pop('min_value', None)
         super(IntegerField, self).__init__(*args, **kwargs)
 
-        if self.max_value is not None:
-            message = self.error_messages['max_value'].format(max_value=self.max_value)
-            self.validators.append(MaxValueValidator(self.max_value, message=message))
-
         if self.min_value is not None:
             message = self.error_messages['min_value'].format(min_value=self.min_value)
             self.validators.append(MinValueValidator(self.min_value, message=message))
+
+        if self.max_value is not None:
+            message = self.error_messages['max_value'].format(max_value=self.max_value)
+            self.validators.append(MaxValueValidator(self.max_value, message=message))
 
     def to_internal_value(self, data):
         if isinstance(data, bool):
@@ -902,7 +903,7 @@ class PasswordField(CharField):
         :param kwargs:
         """
         if protection != "default":
-            assert protection in get_hashers_by_algorithm().keys(), "protection不正确"
+            assert protection in hashers.get_hashers_by_algorithm().keys(), "protection不正确"
         assert level in ("number", "char_normal", "char_english"), "level不正确"
         self.protection = protection.lower()
         self.level = level.lower()
@@ -922,8 +923,29 @@ class PasswordField(CharField):
             value = self.to_internal_value(data)
             self.run_validators(value)
 
-        return make_password(password=value, hasher=self.protection)
+        return hashers.make_password(password=value, hasher=self.protection)
 
     def to_representation(self, value):
         return "*" * 6
 
+
+class IdentifierField(CharField):
+    """
+    用户认证字段类型，比如手机登录、邮箱认证
+    """
+    default_error_messages = {
+        'invalid': '请输入有效的手机号或邮箱'
+    }
+
+    def __init__(self, protocol='both', *args, **kwargs):
+        """
+        :param protocol: 注册类型
+                         both（包括phone、email）
+                         phone 手机注册
+                         email 邮箱注册
+        :param kwargs:
+        """
+        self.protocol = protocol.lower()
+        assert self.protocol in ("both", "phone", "email"), "`IdentifierField.protocol`不正确"
+        super(IdentifierField, self).__init__(*args, **kwargs)
+        self.validators.append(IdentifierValidator(self.protocol))

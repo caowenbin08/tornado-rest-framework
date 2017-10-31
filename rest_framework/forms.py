@@ -5,13 +5,12 @@ from collections import OrderedDict, Mapping
 
 from rest_framework.conf import settings
 from rest_framework.db import models
-from rest_framework.exceptions import ErrorDetail, ValidationError
+from rest_framework.exceptions import ErrorDetail, ValidationError, ImproperlyConfigured
 from rest_framework.fields import *
 from rest_framework.helpers import functional, model_meta
 from rest_framework.helpers.cached_property import cached_property
 from rest_framework.helpers.field_mapping import ClassLookupDict
 from rest_framework.helpers.field_mapping import get_field_kwargs
-from rest_framework.helpers.serializer_utils import BindingDict, ReturnDict
 from rest_framework.fields import __all__ as fields_all
 from rest_framework.validators import UniqueTogetherValidator
 
@@ -150,11 +149,11 @@ def as_form_error(exc):
         }
     elif isinstance(detail, list):
         return {
-            settings.FIELD_ERRORS_KEY: detail
+            settings.FIELD_ERRORS_KEY: detail[0] if len(detail) == 1 else detail
         }
 
     return {
-        settings.FIELD_ERRORS_KEY: [detail]
+        settings.FIELD_ERRORS_KEY: detail
     }
 
 
@@ -178,7 +177,7 @@ class Form(BaseForm):
         :return:
         """
         if not hasattr(self, '_fields'):
-            setattr(self, "_fields", BindingDict(self))
+            setattr(self, "_fields", functional.BindingDict(self))
             for key, value in self.get_fields().items():
                 self._fields[key] = value
         return self._fields
@@ -206,7 +205,8 @@ class Form(BaseForm):
         """
         meta = getattr(self, 'Meta', None)
         validators = getattr(meta, 'validators', None)
-        return validators[:] if validators else []
+        assert isinstance(validators, (type(None), tuple, list)), "`Meta.validators`的结构必须为tuple或list"
+        return validators[:] if validators is not None else []
 
     def get_value(self, dictionary):
         """
@@ -230,10 +230,20 @@ class Form(BaseForm):
         value = self.to_internal_value(data)
         try:
             self.run_validators(value)
+            value = self.validate(value)
+            assert value is not None, '.validate()必须要返回校验之后的值'
         except ValidationError as exc:
             raise ValidationError(detail=as_form_error(exc))
 
         return value
+
+    def validate(self, params):
+        """
+        所有字段校验之后，进行业务或字段组合检查
+        :param params:
+        :return:
+        """
+        return params
 
     def to_internal_value(self, data):
         """
@@ -257,7 +267,8 @@ class Form(BaseForm):
                     validated_value = validate_method(validated_value)
 
             except ValidationError as exc:
-                errors[field.field_name] = exc.detail
+                detail = exc.detail
+                errors[field.field_name] = exc.detail[0] if len(detail) == 1 else detail
 
             else:
                 functional.set_value(ret, field.source_attrs, validated_value)
@@ -278,7 +289,8 @@ class Form(BaseForm):
             # 边界情况。提供一个更具描述性的错误说明，比“这个字段可能不空”好。当没有数据传递。
             detail = ErrorDetail(string='没有提供数据', code='null')
             ret = {"non_field_errors": [detail]}
-        return ReturnDict(ret, serializer=self)
+        return ret
+        # return functional.ReturnDict(ret, serializer=self)
 
 
 class ModelForm(Form):
@@ -590,6 +602,8 @@ class ModelForm(Form):
             model_field = info.fields_and_pk[field_name]
             return self.build_standard_field(field_name, model_field)
 
+        return self.build_unknown_field(field_name, model_class)
+
     def build_standard_field(self, field_name, model_field):
         """
          模型字段与表单字段绑定
@@ -615,6 +629,12 @@ class ModelForm(Form):
 
         return field_class, field_kwargs
 
-
-
-
+    @staticmethod
+    def build_unknown_field(field_name, model_class):
+        """
+        抛出没有定义的字段异常
+        """
+        raise ImproperlyConfigured(
+            'Field name `%s` is not valid for model `%s`.' %
+            (field_name, model_class.__name__)
+        )

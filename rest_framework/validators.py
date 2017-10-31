@@ -450,11 +450,10 @@ class FileExtensionValidator(object):
 
 class UniqueValidator(object):
     """
-    Validator that corresponds to `unique=True` on a model field.
-
-    Should be applied to an individual field on the serializer.
+    model模型字段设置了unique=True，进行唯一索引检查
     """
-    message = 'This field must be unique.'
+
+    message = '该字段值必须唯一'
 
     def __init__(self, queryset, message=None, lookup='exact'):
         self.queryset = queryset
@@ -569,7 +568,7 @@ class UniqueTogetherValidator(object):
     def exclude_current_instance(self, queryset):
         if self.instance is not None:
             pk = getattr(self.instance, "_meta").primary_key
-            return queryset.filter(getattr(self.instance, "_meta").primary_key != pk.value)
+            return queryset.filter(pk != getattr(self.instance, pk.name))
 
         return queryset
 
@@ -628,3 +627,81 @@ class PasswordValidator(object):
         if not valid:
             raise ValidationError(self.message[self.level], code=self.code)
 
+
+class PhoneValidator(object):
+    """
+    手机号码检查
+    移动号段：
+    134 135 136 137 138 139 147 148 150 151 152 157 158 159 172 178 182 183 184 187 188 198
+    联通号段：
+    130 131 132 145 146 155 156 166 171 175 176 185 186
+    电信号段：
+    133 149 153 173 174 177 180 181 189 199
+    虚拟运营商:
+    170
+    2017-08-08：工信部新批号段：电信199/移动198/联通166 ，146联通，148移动
+
+    精准的匹配：^(13[0-9]|14[5-9]|15[0-9]|16[6]|17[0-8]|18[0-9]|19[8-9])\d{8}$
+    粗准匹配：^1(3|4|5|7|8|9)[0-9]{9}$
+    """
+    message = "输入一个有效的手机号码"
+    code = 'invalid'
+    phone_regex = lazy_re_compile(r"^(13[0-9]|14[5-9]|15[0-9]|16[6]|17[0-8]|18[0-9]|19[8-9])\d{8}$", flags=re.IGNORECASE)
+
+    def __init__(self, message=None, code=None):
+        if message is not None:
+            self.message = message
+
+        if code is not None:
+            self.code = code
+
+    def __call__(self, value):
+        value = force_text(value)
+
+        if not value or not value.isdigit():
+            raise ValidationError(self.message, code=self.code)
+
+        if not self.phone_regex.match(value):
+            raise ValidationError(self.message, code=self.code)
+
+validate_phone = PhoneValidator()
+
+
+class IdentifierValidator(object):
+    """
+    手机号码或邮箱地址是否合法
+    """
+
+    message = {
+        "both": "输入一个有效的手机号或邮箱",
+        "phone": "输入一个有效的手机号",
+        "email": "输入一个有效的邮箱地址"
+    }
+    code = 'invalid'
+
+    def __init__(self, protocol="both", message=None, code=None):
+        self.protocol = protocol
+        assert isinstance(message, (type(None), dict)), "message值必须为字典类型"
+        if message is not None:
+            self.message = message
+
+        if code is not None:
+            self.code = code
+
+    def __call__(self, value):
+        if not value:
+            raise ValidationError(self.message[self.protocol], code=self.code)
+
+        if self.protocol == "both":
+            if "@" in value:
+                validate_email(value)
+            elif value.isdigit():
+                validate_phone(value)
+            else:
+                raise ValidationError(self.message[self.protocol], code=self.code)
+
+        elif self.protocol == "email":
+            validate_email(value)
+
+        elif self.protocol == "phone":
+            validate_phone(value)

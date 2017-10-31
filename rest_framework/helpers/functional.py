@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import sys
 from importlib import import_module
-from collections import OrderedDict
+from collections import OrderedDict, MutableMapping
 __author__ = 'caowenbin'
 
 
@@ -142,3 +142,73 @@ def import_class_attribute(dotted_path):
         msg = 'Module "%s" does not define a "%s" attribute/class' % (
             module_path, class_name)
         reraise(ImportError, ImportError(msg), sys.exc_info()[2])
+
+
+# class ReturnDict(OrderedDict):
+#     """
+#     返回字典结构的序列化数据
+#     """
+#
+#     def __init__(self, *args, **kwargs):
+#         self.serializer = kwargs.pop('serializer')
+#         super(ReturnDict, self).__init__(*args, **kwargs)
+#
+#     def copy(self):
+#         return ReturnDict(self, serializer=self.serializer)
+#
+#     def __repr__(self):
+#         return dict.__repr__(self)
+#
+#     def __reduce__(self):
+#         return dict, (dict(self),)
+
+
+# class ReturnList(list):
+#     """
+#     返回列表结构的序列化数据
+#     """
+#
+#     def __init__(self, *args, **kwargs):
+#         self.serializer = kwargs.pop('serializer')
+#         super(ReturnList, self).__init__(*args, **kwargs)
+#
+#     def __repr__(self):
+#         return list.__repr__(self)
+#
+#     def __reduce__(self):
+#         return list, (list(self),)
+
+
+class BindingDict(MutableMapping):
+    """
+    这字典对象用于在串行存储领域。
+    这样可以确保每当将字段添加到我们所调用的序列化程序时，
+    `field.bind()`使`field_name` 和 `parent` 属性可以正确设置
+    """
+
+    def __init__(self, form_serializer):
+        """
+
+        :param form_serializer: 可能是表单类或序列类
+        """
+        self.form_serializer = form_serializer
+        self.fields = OrderedDict()
+
+    def __setitem__(self, key, field):
+        self.fields[key] = field
+        field.bind(field_name=key, parent=self.form_serializer)
+
+    def __getitem__(self, key):
+        return self.fields[key]
+
+    def __delitem__(self, key):
+        del self.fields[key]
+
+    def __iter__(self):
+        return iter(self.fields)
+
+    def __len__(self):
+        return len(self.fields)
+
+    def __repr__(self):
+        return dict.__repr__(self.fields)

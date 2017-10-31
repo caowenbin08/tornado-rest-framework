@@ -32,7 +32,7 @@ def is_password_usable(encoded_password):
 
 def check_password(password, encoded_password, restpwd=None, preferred='default'):
     """
-
+    检查密码正确性
     :param password:
     :param encoded_password:
     :param restpwd: 如果密码加密格式不一样，则根据新的协议重置加密密码
@@ -60,6 +60,13 @@ def check_password(password, encoded_password, restpwd=None, preferred='default'
 
 
 def make_password(password, salt=None, hasher='default'):
+    """
+    密码加密
+    :param password:
+    :param salt:
+    :param hasher:
+    :return:
+    """
 
     if password is None:
         return UNUSABLE_PASSWORD_PREFIX + get_random_string(UNUSABLE_PASSWORD_SUFFIX_LENGTH)

@@ -31,4 +31,4 @@ PASSWORD_HASHERS = [
     'rest_framework.helpers.hashers.BCryptPasswordHasher',
 ]
 # 默认的字段异常key
-FIELD_ERRORS_KEY = "field_errors"
+FIELD_ERRORS_KEY = "error_msg"
