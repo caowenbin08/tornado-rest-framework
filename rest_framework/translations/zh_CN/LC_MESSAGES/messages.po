@@ -1,0 +1,68 @@
+# Chinese (Simplified, China) translations for PROJECT.
+# Copyright (C) 2017 ORGANIZATION
+# This file is distributed under the same license as the PROJECT project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2017.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2017-12-21 11:19+0800\n"
+"PO-Revision-Date: 2017-12-08 19:08+0800\n"
+"Last-Translator: \n"
+"Language: zh_Hans_CN\n"
+"Language-Team: zh_Hans_CN <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.5.1\n"
+
+#: core/exceptions.py:53
+msgid "Invalid input"
+msgstr "无效输入"
+
+#: core/exceptions.py:90
+msgid "A server error occurred"
+msgstr "服务器异常"
+
+#: core/exceptions.py:114
+msgid "Malformed request"
+msgstr "请求数据解析失败"
+
+#: core/script/base.py:44
+msgid "show this help message and exit"
+msgstr "显示此帮助消息并退出"
+
+#: forms/fields.py:35
+msgid "May not set both `required` and `default`"
+msgstr "不能同时设置'required'和'default'"
+
+#: forms/fields.py:82
+msgid "This field is required"
+msgstr "此字段为必填栏"
+
+#: forms/fields.py:83
+msgid "This field may not be null"
+msgstr "该字段不能为空"
+
+#: forms/fields.py:349
+msgid "\"{input}\" is not a valid boolean"
+msgstr "\"{input}\" 不是有效的布尔值"
+
+#: forms/validators.py:153 forms/validators.py:676
+msgid "Enter a valid email address"
+msgstr "输入有效的邮箱地址"
+
+#: forms/validators.py:645 forms/validators.py:675
+msgid "Enter a valid phone number"
+msgstr "请输入有效的手机号码"
+
+#: forms/validators.py:674
+msgid "Enter a valid phone number or email address"
+msgstr "输入有效的手机号码或电子邮件地址"
+
+#: views/generics.py:223
+msgid "Not found"
+msgstr "数据不存在"
+

@@ -6,7 +6,7 @@ import importlib
 import os
 
 from rest_framework.conf import global_settings
-from rest_framework.helpers.lazy import LazyObject, empty
+from rest_framework.utils.lazy import LazyObject, empty
 
 __author__ = 'caowenbin'
 
