@@ -4,7 +4,7 @@ from functools import reduce
 
 from rest_framework.conf import settings
 from rest_framework.core.db import models
-from rest_framework.core.exceptions import ImproperlyConfigured, translate_validation
+from rest_framework.core.exceptions import ImproperlyConfigured, ValidationError
 from rest_framework.filters import filterset
 
 __author__ = 'caowenbin'
@@ -220,7 +220,7 @@ class FilterBackend(BaseFilterBackend):
         if filter_class:
             filterset = filter_class(request_handler.request.data, queryset)
             if not filterset.is_valid() and self.raise_exception:
-                raise translate_validation(filterset.errors)
+                raise ValidationError(filterset.errors)
             return filterset.qs
         return queryset
 

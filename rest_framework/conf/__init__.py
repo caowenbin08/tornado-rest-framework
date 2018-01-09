@@ -31,7 +31,8 @@ class LazySettings(LazyObject):
         }
 
     def __getattr__(self, name):
-        if self._wrapped is empty:
+        if self._wrapped is empty or (self._wrapped.SETTINGS_MODULE is None
+                                      and os.environ.get(ENVIRONMENT_VARIABLE)):
             self._setup(name)
 
         val = getattr(self._wrapped, name)
@@ -84,14 +85,6 @@ class Settings(object):
             'cls': self.__class__.__name__,
             'settings_module': self.SETTINGS_MODULE,
         }
-
-    @property
-    def dict_data(self):
-        """
-        dict结构的配置
-        :return:
-        """
-        return dict((k.lower(), v) for k, v in self.__dict__ .items() if not k.startswith("_"))
 
 
 settings = LazySettings()

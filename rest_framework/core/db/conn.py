@@ -25,10 +25,9 @@ class ConnectionHandler(object):
 
     @cached_property
     def databases(self):
-        print("=======ConnectionHandler========databases============", self._databases)
         if self._databases is None:
             self._databases = settings.DATABASES
-        print("=======ConnectionHandler========databases==eee==========", self._databases)
+
         if DEFAULT_DB_ALIAS not in self._databases:
             raise ImproperlyConfigured("You must define a '%s' database" % DEFAULT_DB_ALIAS)
 
@@ -43,12 +42,13 @@ class ConnectionHandler(object):
         except KeyError:
             raise ConnectionDoesNotExist("The connection %s doesn't exist" % alias)
 
-        conn.setdefault('POOL', False)
-        conn.setdefault("CHARSET", "utf8")
+        options = conn.setdefault("OPTIONS", {})
+        options.setdefault('POOL', False)
+        options.setdefault("CHARSET", "utf8")
 
-        if conn["POOL"]:
-            conn.setdefault("MAX_CONNECTIONS", 5)  # 连接池最大连接数
-            conn.setdefault("STALE_TIMEOUT", 100)  # 僵尸连接超时间，单位为秒
+        if options["POOL"]:
+            options.setdefault("MAX_CONNECTIONS", 20)  # 连接池最大连接数
+            options.setdefault("STALE_TIMEOUT", 100)  # 僵尸连接超时间，单位为秒
 
         for setting in ['NAME', 'USER', 'PASSWORD', 'HOST', 'PORT']:
             conn.setdefault(setting, '')

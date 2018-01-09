@@ -28,9 +28,9 @@ class CreateModelMixin(object):
         return instance
 
     def create(self, *args, **kwargs):
-        form = self.get_form(data=self.json_data)
+        form = self.get_form()
 
-        if form.is_valid(raise_exception=self.form_valid_raise_except):
+        if form.is_valid():
             instance = self.perform_create(form)
 
             if self.need_obj_serializer:

@@ -12,17 +12,25 @@ from rest_framework.utils.transcoder import force_bytes
 
 __author__ = 'caowenbin'
 
-SecretKeyCommand = Manager(usage='密钥生成命令')
+SecretKeyCommand = Manager(usage="Key generation command")
 
 
-@SecretKeyCommand.option('-l', '--length', dest='length', type=int, default=16, help="密钥长度，值只能为16、24、32")
-@SecretKeyCommand.option('-c', '--allowed_chars', dest='allowed_chars', default=None, help="生成密钥的字符集")
+@SecretKeyCommand.option(
+    '-l', '--length',
+    dest='length', type=int, default=16,
+    help="Key length, the value can only be 16,24,32"
+)
+@SecretKeyCommand.option(
+    '-c', '--allowed_chars',
+    dest='allowed_chars', default=None,
+    help="Generate the key character set"
+)
 def aes(app, length=16, allowed_chars=None):
     """
-    AES密钥
+    AES key
     """
     if length not in (16, 24, 32):
-        raise CommandError("密钥长度只能为16、24或32")
+        raise CommandError("The key length can only be 16, 24 or 32")
 
     if allowed_chars is None:
         allowed_chars = string.digits + string.ascii_letters + string.punctuation

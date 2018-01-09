@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import asyncio
 import traceback
 import logging
 
@@ -9,6 +10,7 @@ from tornado.log import app_log, gen_log
 from tornado.web import RequestHandler, HTTPError
 
 from rest_framework.core import exceptions
+from rest_framework.core.exceptions import APIException
 from rest_framework.core.translation import locale
 from rest_framework.views import mixins
 from rest_framework.conf import settings
@@ -49,7 +51,7 @@ class BaseAPIHandler(RequestHandler, BabelTranslatorMixin):
     NOT_CHECK_XSRF_METHOD = ("GET", "HEAD", "OPTIONS")
 
     def __init__(self, application, request, **kwargs):
-        self.json_data = dict()
+        self.request_data = None
         super(BaseAPIHandler, self).__init__(application, request, **kwargs)
 
     def data_received(self, chunk):
@@ -88,14 +90,16 @@ class BaseAPIHandler(RequestHandler, BabelTranslatorMixin):
         """
         content_type = self.request.headers.get("Content-Type", "")
         if not content_type:
-            self.request.data = self._parse_query_arguments()
+            self.request_data = self._parse_query_arguments()
+            self.request.data = self.request_data
             return
+
         parser = self.select_parser()
         if not parser:
             error_detail = 'Unsupported media type "%s" in request' % content_type
             raise APIException(error_detail, status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE)
 
-        self.json_data = parser.parse(self.request)
+        self.request_data = parser.parse(self.request)
         # content_type = self.request.headers.get("Content-Type", "")
         #
         # if content_type == "application/json":
@@ -104,7 +108,7 @@ class BaseAPIHandler(RequestHandler, BabelTranslatorMixin):
         # elif content_type in ("application/x-www-form-urlencoded", "multipart/form-data"):
         #     self.json_data = self.request.body_arguments
 
-        self.request.data = self.json_data
+        self.request.data = self.request_data
 
     @gen.coroutine
     def _execute(self, transforms, *args, **kwargs):
@@ -139,7 +143,12 @@ class BaseAPIHandler(RequestHandler, BabelTranslatorMixin):
                     return
 
             handler = getattr(self, method.lower())
-            result = handler(*self.path_args, **self.path_kwargs)
+            handler_result = handler(*self.path_args, **self.path_kwargs)
+            # 如果 handler_result 是 协同对象，则返回 True，其可以基于生成器或 async def 协同程序
+            if asyncio.iscoroutine(handler_result):
+                result = yield from handler_result
+            else:
+                result = handler_result
             result = self.finalize_response(result)
 
             if result is not None:
@@ -194,9 +203,6 @@ class BaseAPIHandler(RequestHandler, BabelTranslatorMixin):
         self.finalize_response(response)
         self.finish()
 
-    # def log_exception(self, typ, value, tb):
-
-
     def handle_exception(self, exc):
         """
         统一异常处理
@@ -205,12 +211,8 @@ class BaseAPIHandler(RequestHandler, BabelTranslatorMixin):
         """
         error_response = None
 
-        if isinstance(exc, exceptions.ApiException):
+        if isinstance(exc, exceptions.APIException):
             headers = {}
-            if getattr(exc, 'auth_header', None):
-                headers['WWW-Authenticate'] = exc.auth_header
-            if getattr(exc, 'wait', None):
-                headers['Retry-After'] = '%d' % exc.wait
 
             if isinstance(exc.detail, (list, dict)):
                 data = exc.detail
@@ -253,7 +255,7 @@ class GenericAPIHandler(BaseAPIHandler):
     # url与view的关键参数名称
     lookup_url_kwarg = None
     # 分页处理类
-    pagination_class = "rest_framework.pagination.PageNumberPagination"
+    pagination_class = "rest_framework.core.pagination.PageNumberPagination"
     # 页面模板名
     template_name = ""
     # 修改或创建是否序列化实例对象返回, False代表只返回主键值，True代表返回实例对象
@@ -273,6 +275,13 @@ class GenericAPIHandler(BaseAPIHandler):
     # 用户没有传入排序参数数据或传入的排序参数字段不在`ordering_fields`或model中时，此设置就作为默认的排序生效
     # 属性值可以是model.field.desc/asc()、+/-model.field的字符串或+/-field（不匹配join的model字段）的元组/列表
     ordering = None
+    initial = {}
+
+    def get_initial(self):
+        """
+        Returns the initial data to use for forms on this view.
+        """
+        return self.initial.copy()
 
     def get_queryset(self, queryset=None):
         """
@@ -325,7 +334,7 @@ class GenericAPIHandler(BaseAPIHandler):
                 "First argument to get_object_or_404() must be a Model or SelectQuery, not '%s'." % queryset_name
             )
         except queryset.model_class.DoesNotExist:
-            raise APIException(
+            raise exceptions.APIException(
                 status_code=404,
                 response_detail=Response(data=self.error_msg_404) if self.error_msg_404 else None
             )
@@ -374,30 +383,41 @@ class GenericAPIHandler(BaseAPIHandler):
 
         return self.serializer_class
 
-    def get_form(self, *args, **kwargs):
+    def get_form(self, form_class=None):
         """
-        实例化表单处理类返回
-        :param args:
-        :param kwargs:
+        Returns an instance of the form to be used in this view
+        :param form_class:
         :return:
         """
-        form_class = self.get_form_class()
-        # kwargs['context'] = self.get_serializer_context()
-        return form_class(*args, **kwargs)
+        if form_class is None:
+            form_class = self.get_form_class()
+
+        return form_class(**self.get_form_kwargs())
 
     def get_form_class(self):
         """
-        返回定义的表单处理类，这个子类可以根据需要重构
+        Returns the form class to use in this view
+        :return:
         """
-        assert self.form_class is not None, (
-            "'%s' should either include a `form_class` attribute, "
-            "or override the `get_form_class()` method."
-            % self.__class__.__name__
-        )
-
         return self.form_class
 
-    def get_paginate_settings(self):
+    def get_form_kwargs(self):
+        """
+        Returns the keyword arguments for instantiating the form.
+        """
+        kwargs = {
+            'request': self.request,
+            'initial': self.get_initial(),
+            'data': self.request.data,
+        }
+
+        if self.request.method in ('POST', 'PUT'):
+            kwargs.update({
+                'files': self.request.files,
+            })
+        return kwargs
+
+    def overload_paginate_settings(self):
         """
         自定义分页的参数，在`self.paginator.paginate_queryset`中调用
         :return:
@@ -454,7 +474,7 @@ class ListAPIHandler(mixins.ListModelMixin, GenericAPIHandler):
     """
     列表
     """
-    def get(self, *args, **kwargs):
+    async def get(self, *args, **kwargs):
         return self.list(*args, **kwargs)
 
 
@@ -462,7 +482,7 @@ class CreateAPIHandler(mixins.CreateModelMixin, GenericAPIHandler):
     """
     创建对象
     """
-    def post(self, *args, **kwargs):
+    async def post(self, *args, **kwargs):
         return self.create(*args, **kwargs)
 
 
@@ -470,10 +490,10 @@ class RetrieveUpdateAPIHandler(mixins.RetrieveModelMixin, mixins.UpdateModelMixi
     """
     查看详情及修改
     """
-    def get(self, *args, **kwargs):
+    async def get(self, *args, **kwargs):
         return self.retrieve(*args, **kwargs)
 
-    def put(self, *args, **kwargs):
+    async def put(self, *args, **kwargs):
         return self.update(*args, **kwargs)
 
 
@@ -481,5 +501,5 @@ class DestroyAPIHandler(mixins.DestroyModelMixin, GenericAPIHandler):
     """
     删除对象
     """
-    def delete(self, *args, **kwargs):
+    async def delete(self, *args, **kwargs):
         return self.destroy(*args, **kwargs)

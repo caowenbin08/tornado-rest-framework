@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from tornado import escape
+from tornado.escape import json_encode
 
 from rest_framework.utils.status import HTTP_200_OK
 
@@ -11,7 +11,8 @@ class Response(object):
     响应处理
     """
 
-    def __init__(self, data=None, status_code=HTTP_200_OK, template_name=None, headers=None, content_type=None):
+    def __init__(self, data=None, status_code=HTTP_200_OK, template_name=None, headers=None,
+                 content_type=None):
         """
         :param data: 响应数据
         :param status_code: http状态码
@@ -20,10 +21,10 @@ class Response(object):
         :param content_type: 响应格式
         """
 
-        self.__data = data
+        self._data = data
         self.status_code = status_code
         self.template_name = template_name
-        self.content_type = content_type if content_type else "application/json"
+        self.content_type = "application/json" if content_type is None else content_type
 
         if headers:
             for name, value in iter(headers.items()):
@@ -31,4 +32,4 @@ class Response(object):
 
     @property
     def data(self):
-        return escape.json_encode(self.__data) if self.content_type == "application/json" else self.__data
+        return json_encode(self._data) if self.content_type == "application/json" else self._data

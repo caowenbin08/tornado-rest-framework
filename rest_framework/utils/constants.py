@@ -11,3 +11,6 @@ QUERY_TERMS = {
 EMPTY_VALUES = ([], (), {}, '', None)
 LOOKUP_SEP = "."
 ALL_FIELDS = "__all__"
+
+FILE_INPUT_CONTRADICTION = object()
+

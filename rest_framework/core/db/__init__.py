@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-import peewee
-
+from rest_framework.lib import peewee
 from rest_framework.core.db.conn import ConnectionHandler, DEFAULT_DB_ALIAS
 
 __author__ = 'caowenbin'
+# 同步db
 models = peewee
 # 所有数据库连接
 databases = ConnectionHandler()

@@ -5,7 +5,7 @@ import string
 import random
 import hashlib
 from importlib import import_module
-from collections import OrderedDict, MutableMapping
+from collections import OrderedDict
 try:
     random = random.SystemRandom()
     using_sysrandom = True
@@ -142,50 +142,19 @@ def import_object(obj_name):
 
     if obj_name.count('.') == 0:
         return __import__(obj_name, None, None)
+    try:
+        module_path, class_name = obj_name.rsplit('.', 1)
+    except ValueError:
+        msg = "%s doesn't look like a module path" % obj_name
+        raise ImportError(msg)
 
-    module_path, class_name = obj_name.rsplit('.', 1)
     obj = import_module(module_path)
 
     try:
         return getattr(obj, class_name)
     except AttributeError:
-        msg = '模块"%s"不存在属性"%s"' % (module_path, class_name)
+        msg = 'Module "%s" does not define a "%s" attribute/class"' % (module_path, class_name)
         raise ImportError(msg)
-
-
-class BindingDict(MutableMapping):
-    """
-    这字典对象用于在串行存储领域。
-    这样可以确保每当将字段添加到我们所调用的序列化程序时，
-    `field.bind()`使`field_name` 和 `parent` 属性可以正确设置
-    """
-
-    def __init__(self, form_serializer):
-        """
-
-        :param form_serializer: 可能是表单类或序列类
-        """
-        self.form_serializer = form_serializer
-        self.fields = OrderedDict()
-
-    def __setitem__(self, key, field):
-        self.fields[key] = field
-        field.bind(field_name=key, parent=self.form_serializer)
-
-    def __getitem__(self, key):
-        return self.fields[key]
-
-    def __delitem__(self, key):
-        del self.fields[key]
-
-    def __iter__(self):
-        return iter(self.fields)
-
-    def __len__(self):
-        return len(self.fields)
-
-    def __repr__(self):
-        return dict.__repr__(self.fields)
 
 
 class OrderedDictStorage(OrderedDict):
@@ -307,3 +276,4 @@ def get_random_string(length=12, allowed_chars=None):
     if not using_sysrandom:
         random.seed(hashlib.sha256(("%s%s" % (random.getstate(), time.time())).encode('utf-8')).digest())
     return ''.join(random.choice(allowed_chars) for _ in range(length))
+

@@ -7,7 +7,6 @@ import logging
 import argparse
 
 from rest_framework.core.exceptions import CommandError
-from rest_framework.core.translation import gettext as _
 from rest_framework.core.script.commands import Option, Command, Server, Shell, StartProject
 
 __author__ = 'caowenbin'
@@ -40,14 +39,20 @@ except ImportError:
 def add_help(parser, help_args):
     if not help_args:
         return
-    parser.add_argument(*help_args,
-                        action='help', default=argparse.SUPPRESS, help=_('show this help message and exit'))
+
+    parser.add_argument(
+        *help_args,
+        action='help',
+        default=argparse.SUPPRESS,
+        help='show this help message and exit'
+    )
 
 
 class Manager(object):
     help_args = ('-h', '--help')
 
-    def __init__(self, with_default_commands=None, usage=None, help=None, description=None, disable_argcomplete=False):
+    def __init__(self, with_default_commands=None, usage=None, help=None, description=None,
+                 disable_argcomplete=False):
         """
 
         :param with_default_commands:
@@ -94,10 +99,14 @@ class Manager(object):
         for option in self.get_options():
             options_parser.add_argument(*option.args, **option.kwargs)
 
-        parser = argparse.ArgumentParser(prog=prog, usage=self.usage,
-                                         description=self.description,
-                                         parents=[options_parser],
-                                         add_help=False)
+        parser = argparse.ArgumentParser(
+            prog=prog,
+            usage=self.usage,
+            description=self.description,
+            parents=[options_parser],
+            add_help=False
+        )
+
         add_help(parser, self.help_args)
 
         self._patch_argparser(parser)
@@ -113,10 +122,14 @@ class Manager(object):
 
             command_parser = command.create_parser(name, func_stack=func_stack, parent=self)
 
-            subparser = subparsers.add_parser(name, usage=usage, help=help,
-                                              description=description,
-                                              parents=[command_parser],
-                                              add_help=False)
+            subparser = subparsers.add_parser(
+                name,
+                usage=usage,
+                help=help,
+                description=description,
+                parents=[command_parser],
+                add_help=False
+            )
 
             if isinstance(command, Manager):
                 self._patch_argparser(subparser)
@@ -278,7 +291,7 @@ class Manager(object):
         # get the handle function and remove it from parsed options
         kwargs = app_namespace.__dict__
         func_stack = kwargs.pop('func_stack', None)
-        print("===asf===func_stack", func_stack)
+
         if not func_stack:
             app_parser.error('too few arguments')
 
@@ -303,7 +316,7 @@ class Manager(object):
 
             if handle is last_func and getattr(last_func, 'capture_all_args', False):
                 args.append(remaining_args)
-            print("-----args, config--", args, config)
+
             try:
                 res = handle(*args, **config)
             except TypeError as err:

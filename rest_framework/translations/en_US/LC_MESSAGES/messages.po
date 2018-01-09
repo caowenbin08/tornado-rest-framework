@@ -1,18 +1,18 @@
-# Chinese (Simplified, China) translations for PROJECT.
-# Copyright (C) 2017 ORGANIZATION
+# English (United States) translations for PROJECT.
+# Copyright (C) 2018 ORGANIZATION
 # This file is distributed under the same license as the PROJECT project.
-# FIRST AUTHOR <EMAIL@ADDRESS>, 2017.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2018.
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
 "POT-Creation-Date: 2018-01-03 20:14+0800\n"
-"PO-Revision-Date: 2018-01-02 20:29+0800\n"
-"Last-Translator: \n"
-"Language: zh_Hans_CN\n"
-"Language-Team: zh_Hans_CN <LL@li.org>\n"
-"Plural-Forms: nplurals=1; plural=0\n"
+"PO-Revision-Date: 2018-01-02 20:10+0800\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: en_US\n"
+"Language-Team: en_US <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n != 1)\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -20,122 +20,122 @@ msgstr ""
 
 #: core/exceptions.py:234
 msgid "A server error occurred"
-msgstr "服务器异常"
+msgstr ""
 
 #: core/exceptions.py:269
 msgid "Malformed request"
-msgstr "请求数据解析失败"
+msgstr ""
 
 #: core/exceptions.py:278
 msgid "Invalid page"
-msgstr "无效页码"
+msgstr ""
 
 #: core/pagination.py:161
 msgid "The page number must be a number or page string"
-msgstr "页码必须是​​数字或页码简称字符串标记"
+msgstr ""
 
 #: core/pagination.py:167
 msgid "The page number must be greater than 1"
-msgstr "页码必须大于1"
+msgstr ""
 
 #: core/pagination.py:174
 msgid "The page number exceeds the total page number"
-msgstr "页码超过了总页码"
+msgstr ""
 
 #: core/validators.py:17
 msgid "Enter a valid value"
-msgstr "请输入一个有效值"
+msgstr ""
 
 #: core/validators.py:85 forms/fields.py:599
 msgid "Enter a valid URL"
-msgstr "请输入有效的网址URL"
+msgstr ""
 
 #: core/validators.py:138
 msgid "Enter a valid integer"
-msgstr "请输入一个有效的整数"
+msgstr ""
 
 #: core/validators.py:148 core/validators.py:556
 msgid "Enter a valid email address"
-msgstr "请输入有效的邮箱地址"
+msgstr ""
 
 #: core/validators.py:222
 msgid "Enter a valid IPv4 or IPv6 address"
-msgstr "请输入有效的IPv4或IPv6地址"
+msgstr ""
 
 #: core/validators.py:223
 msgid "Enter a valid IPv4 address"
-msgstr "请输入有效的IPv4地址"
+msgstr ""
 
 #: core/validators.py:224
 msgid "Enter a valid IPv6 address"
-msgstr "请输入有效的IPv6地址"
+msgstr ""
 
 #: core/validators.py:311
 #, python-format
 msgid "Ensure this value is %(limit_value)s (it is %(show_value)s)"
-msgstr "确保等于 %(limit_value)s（目前是%(show_value)s）"
+msgstr ""
 
 #: core/validators.py:341
 #, python-format
 msgid "Ensure this value is less than or equal to %(limit_value)s"
-msgstr "确保小于或等于%(limit_value)s"
+msgstr ""
 
 #: core/validators.py:349
 #, python-format
 msgid "Ensure this value is greater than or equal to %(limit_value)s"
-msgstr "确保大于或等于%(limit_value)s"
+msgstr ""
 
 #: core/validators.py:357
 #, python-format
 msgid ""
 "Ensure this value has at least %(limit_value)d character (it has "
 "%(show_value)d)"
-msgstr "确保至少有 %(limit_value)d 字符（目前是 %(show_value)d）"
+msgstr ""
 
 #: core/validators.py:368
 #, python-format
 msgid ""
 "Ensure this value has at most %(limit_value)d character (it has "
 "%(show_value)d)"
-msgstr "确保最多 %(limit_value)d 字符（目前是 %(show_value)d）"
+msgstr ""
 
 #: core/validators.py:384
 #, python-format
 msgid "Ensure that there are no more than %(max)s digit in total"
-msgstr "确保总共不超过 %(max)s 位数 "
+msgstr ""
 
 #: core/validators.py:385
 #, python-format
 msgid "Ensure that there are no more than %(max)s decimal place"
-msgstr "确保没有超过 %(max)s 的小数点位数"
+msgstr ""
 
 #: core/validators.py:386
 #, python-format
 msgid "Ensure that there are no more than %(max)s digit before the decimal point"
-msgstr "确保小数点前不超过 %(max)s 位数"
+msgstr ""
 
 #: core/validators.py:437
 #, python-format
 msgid ""
 "File extension '%(extension)s' is not allowed. Allowed extensions are: "
 "'%(allowed_extensions)s'."
-msgstr "文件扩展名 '%(extension)s' 是不允许的。 允许的扩展名是：'%(allowed_extensions)s'"
+msgstr ""
 
 #: core/validators.py:522 core/validators.py:555
 msgid "Enter a valid phone number"
-msgstr "请输入有效的手机号码"
+msgstr ""
 
 #: core/validators.py:554
 msgid "Enter a valid phone number or email address"
-msgstr "输入有效的手机号码或电子邮件地址"
+msgstr ""
 
 #: forms/fields.py:43 forms/validators.py:89
 msgid "This field is required"
-msgstr "此字段为必填栏"
+msgstr ""
 
 #: forms/fields.py:247
 msgid "Not a valid string"
-msgstr "请输入有效的字符串"
+msgstr ""
 
 #: forms/fields.py:279
 msgid "Enter a whole number"
@@ -143,19 +143,19 @@ msgstr ""
 
 #: forms/fields.py:309 forms/fields.py:338
 msgid "Enter a number"
-msgstr "请输入一个整数"
+msgstr ""
 
 #: forms/fields.py:410 forms/fields.py:927
 msgid "Enter a valid date"
-msgstr "请输入一个有效的日期"
+msgstr ""
 
 #: forms/fields.py:433 forms/fields.py:928
 msgid "Enter a valid time"
-msgstr "输入一个有效的时间"
+msgstr ""
 
 #: forms/fields.py:454
 msgid "Enter a valid date/time"
-msgstr "请输入有效的日期/时间"
+msgstr ""
 
 #: forms/fields.py:485
 msgid "No file was submitted， Check the encoding type on the form"
@@ -186,7 +186,7 @@ msgstr ""
 
 #: forms/fields.py:638 forms/fields.py:674
 msgid "\"{input}\" is not a valid boolean"
-msgstr "\"{input}\" 不是有效的布尔值"
+msgstr ""
 
 #: forms/fields.py:720
 msgid "\"{input}\" is not a valid choice"
@@ -194,39 +194,77 @@ msgstr ""
 
 #: forms/fields.py:721 forms/fields.py:776
 msgid "Enter a list of values"
-msgstr "输入值的列表"
+msgstr ""
 
 #: forms/fields.py:777
 msgid "Enter a complete value"
-msgstr "输入一个完整的值"
+msgstr ""
 
 #: forms/fields.py:961
 msgid "Enter a valid UUID"
-msgstr "请输入有效的uuid"
+msgstr ""
 
 #: forms/fields.py:1003
 msgid "Please enter a valid password"
-msgstr "请输入有效的密码"
+msgstr ""
 
 #: forms/fields.py:1049
 msgid "Please enter a valid phone number or email address"
-msgstr "请输入有效的电话号码或电子邮件地址"
+msgstr ""
 
 #: forms/models.py:241
 msgid "The form has errors"
-msgstr "表单含有错误信息"
+msgstr ""
 
 #: forms/validators.py:14
 #, python-format
 msgid "This field (%(field_name)s) value must be unique"
-msgstr "字段 (%(field_name)s) 值重复"
+msgstr ""
 
 #: forms/validators.py:87
 msgid ""
 "Resource data already exists. The reason is that {field_names} "
 "constitutes a unique index"
-msgstr "资源数据已经存在，原因由字段 {field_names} 组成唯一约束"
+msgstr ""
 
 #: views/generics.py:223
 msgid "Not found"
-msgstr "数据不存在"
+msgstr ""
+
+#~ msgid "show this help message and exit"
+#~ msgstr ""
+
+#~ msgid "Start the service"
+#~ msgstr ""
+
+#~ msgid "Application port, the default is 5000"
+#~ msgstr ""
+
+#~ msgid "Whether to start the debug mode"
+#~ msgstr ""
+
+#~ msgid "Create a project"
+#~ msgstr ""
+
+#~ msgid ""
+#~ "Creates a project directory structure "
+#~ "for the given project name in the"
+#~ " current directory or optionally in "
+#~ "the given directory"
+#~ msgstr ""
+
+#~ msgid "Project name"
+#~ msgstr ""
+
+#~ msgid "Optional destination directory"
+#~ msgstr ""
+
+#~ msgid "Key generation command"
+#~ msgstr ""
+
+#~ msgid "Key length, the value can only be 16,24,32"
+#~ msgstr ""
+
+#~ msgid "Generate the key character set"
+#~ msgstr ""
+

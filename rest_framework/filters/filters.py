@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-from rest_framework import fields
-from rest_framework.constants import QUERY_TERMS, EMPTY_VALUES
+from rest_framework.forms import fields
+from rest_framework.utils.constants import QUERY_TERMS, EMPTY_VALUES
 # from .fields import (
 #     Lookup,
 #     LookupTypeField,

@@ -3,6 +3,7 @@
 命令工具
 """
 from rest_framework.core.script.base import Manager
+from rest_framework.core.script.db import MigrateCommand
 from rest_framework.core.script.secretkey import SecretKeyCommand
 from rest_framework.core.script.commands import Group, Option, Command, Server, Shell, StartProject
 from rest_framework.core.script.cli import prompt, prompt_pass, prompt_bool, prompt_choices
@@ -30,3 +31,4 @@ def execute_from_command_line(commands=None):
 
 
 manager.add_command('secretkey', SecretKeyCommand)
+manager.add_command('db', MigrateCommand)

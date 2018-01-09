@@ -3,10 +3,11 @@ import copy
 from collections import OrderedDict
 
 from rest_framework import forms
-from rest_framework.constants import LOOKUP_SEP, ALL_FIELDS
+from rest_framework.filters.utils import get_model_field, try_dbfield
+from rest_framework.utils.constants import LOOKUP_SEP, ALL_FIELDS
 from rest_framework.core.db import models
 from rest_framework.filters import filters
-from rest_framework.helpers import modelfieldutil
+# from rest_framework.helpers import modelfieldutil
 
 
 def remote_queryset(field):
@@ -78,8 +79,8 @@ FILTER_FOR_DBFIELD_DEFAULTS = {
     models.DateField:                   {'filter_class': filters.DateFilter},
     models.DateTimeField:               {'filter_class': filters.DateTimeFilter},
     models.TimeField:                   {'filter_class': filters.TimeFilter},
-
     models.SmallIntegerField:           {'filter_class': filters.NumberFilter},
+    models.TimestampField:           {'filter_class': filters.NumberFilter},
 }
 
 
@@ -153,10 +154,8 @@ class BaseFilterSet(object):
     @property
     def form(self):
         if not hasattr(self, '_form'):
-            Form = self.get_form_class()
-            self._form = Form(self.data)
-            # else:
-            #     self._form = Form(prefix=self.form_prefix)
+            form_cls = self.get_form_class()
+            self._form = form_cls(data=self.data)
         return self._form
 
     @classmethod
@@ -223,7 +222,7 @@ class BaseFilterSet(object):
         undefined = []
 
         for field_name, lookups in fields.items():
-            field = modelfieldutil.get_model_field(model_class, field_name)
+            field = get_model_field(model_class, field_name)
 
             if field is None:
                 undefined.append(field_name)
@@ -308,7 +307,7 @@ class BaseFilterSet(object):
         if hasattr(cls, '_meta'):
             default_filters.update(cls._meta.filter_overrides)
 
-        data = modelfieldutil.try_dbfield(default_filters.get, field.__class__) or {}
+        data = try_dbfield(default_filters.get, field.__class__) or {}
         filter_class = data.get('filter_class')
         params = data.get('extra', lambda f: {})(field)
 

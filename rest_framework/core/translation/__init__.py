@@ -5,7 +5,7 @@ from rest_framework.conf import settings
 from rest_framework.core.translation.locale import load_gettext_translations
 from rest_framework.utils.lazy import LazyString
 
-_use_gettext = False
+LOAD_LANGUAGE = False
 
 
 def translation_directories():
@@ -19,13 +19,13 @@ def translation_directories():
 
 
 def get_translations():
-    global _use_gettext
-    if _use_gettext is False:
+    global LOAD_LANGUAGE
+    if LOAD_LANGUAGE is False or (LOAD_LANGUAGE is True and settings.SETTINGS_MODULE is not None):
         for directory in translation_directories():
             if not os.path.isdir(directory):
                 continue
             load_gettext_translations(directory)
-        _use_gettext = True
+        LOAD_LANGUAGE = True
     return locale.get(settings.LANGUAGE_CODE).translations
 
 
@@ -85,6 +85,10 @@ def npgettext(context, singular, plural, num, **variables):
 
 def lazy_gettext(string, **variables):
     return LazyString(gettext, string, **variables)
+
+
+def lazy_ngettext(singular, plural, number=None):
+    return LazyString(ngettext, singular, plural, number)
 
 
 def lazy_pgettext(context, string, **variables):

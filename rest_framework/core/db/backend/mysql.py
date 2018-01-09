@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from playhouse.db_url import connect
+from rest_framework.lib.peewee.playhouse.db_url import connect
 
 from rest_framework.core.db import DEFAULT_DB_ALIAS
 
@@ -9,16 +9,6 @@ __author__ = 'caowenbin'
 class DatabaseWrapper(object):
     def __init__(self, db_settings, alias=DEFAULT_DB_ALIAS):
         """
-        数据库的配置如下：
-             'default': {
-                 'ENGINE': 'rest_framework.db.backend.mysql',
-                 'NAME': 'orders',
-                 'USER': 'root',
-                 'PASSWORD': '',
-                 'HOST': '127.0.0.1',
-                 'PORT': '3306',
-                 'POOL': True
-            }
         :param db_settings: 为default的值
         :param alias: 为default
         """
@@ -30,18 +20,16 @@ class DatabaseWrapper(object):
         """
         :return:
         """
-        pool = self.db_settings.get("POOL", False)
-        connect_params = dict(
-            charset=self.db_settings.get("CHARSET", "utf8")
-        )
-        if pool:
-            db_url_tpl = "{scheme}://{user}:{pwd}@{host}:{port}/{db}"
-            connect_params["max_connections"] = self.db_settings.get("MAX_CONNECTIONS", 5)
-            connect_params["stale_timeout"] = self.db_settings.get("STALE_TIMEOUT", 100)
+        options = self.db_settings.get("OPTIONS", {})
+        is_pool = options.pop("POOL", False)
+        connect_params = {k.lower(): v for k, v in options.items()}
+        db_url_tpl = "{scheme}://{user}:{pwd}@{host}:{port}/{db}"
+
+        if is_pool:  # 同步且连接池
             scheme = "mysql+pool"
         else:
-            db_url_tpl = "{scheme}://{user}:{pwd}@{host}:{port}/{db}"
             scheme = "mysql"
+            self.remove_invalid_params(connect_params, ("max_connections", ))
 
         db_url = db_url_tpl.format(
             scheme=scheme,
@@ -55,3 +43,8 @@ class DatabaseWrapper(object):
         database = connect(url=db_url, **connect_params)
 
         return database
+
+    @staticmethod
+    def remove_invalid_params(connect_params, invalid_params):
+        for p in invalid_params:
+            connect_params.pop(p, None)

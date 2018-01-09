@@ -4,8 +4,8 @@
 """
 from math import ceil
 from collections import OrderedDict
-from rest_framework.conf import settings
-from rest_framework.core.exceptions import APIException
+from rest_framework.core.translation import gettext as _
+from rest_framework.core.exceptions import PaginationError
 from rest_framework.utils.urls import replace_query_param, remove_query_param
 from rest_framework.core.response import Response
 from rest_framework.utils.cached_property import cached_property
@@ -121,23 +121,25 @@ class PageNumberPagination(BasePagination):
     采用分页码的方式分页
     """
     # 每页条数
-    page_size = settings.PAGINATION["page_number"]["page_size"]
+    page_size = 10
     # 页码查询参数变量名
-    page_query_param = settings.PAGINATION["page_number"]["page_query_param"]
+    page_query_param = "page"
     # 自定义每页条数的查询参数名，主要作用于在请求参数中自定义每页条数大小,比如定义为page_size,则请求url参数?page_size=2
-    page_size_query_param = settings.PAGINATION["page_number"]["page_size_query_param"]
+    page_size_query_param = "page_size"
     # 每页条数最大值
-    max_page_size = settings.PAGINATION["page_number"]["max_page_size"]
-    last_page_strings = settings.PAGINATION["page_number"]["last_page_strings"]
-    first_page_strings = settings.PAGINATION["page_number"]["first_page_strings"]
+    max_page_size = None
+    # 默认可以作为最后页码的字符串集合
+    last_page_strings = ('last',)
+    # 默认可以作为第一页码的字符串集合
+    first_page_strings = ('first',)
     paginator_class = Paginator
     orphans = 0
     # 当页码超过总页码时，是否允许返回空列表，True代表可以，False代表抛出APIException异常
-    allow_empty_page = settings.PAGINATION["page_number"]["allow_empty_page"]
+    allow_empty_page = True
     # 当页码值小于1时，是否允许直接转为1返回第一页的数据，反之抛出APIException异常；True可以，False不可以
-    allow_first_page = settings.PAGINATION["page_number"]["allow_first_page"]
+    allow_first_page = True
     # 当页码超过总页码时，是否允许返回最后一页的数据列表 True代表可以，False代表不处理
-    allow_last_page = settings.PAGINATION["page_number"]["allow_last_page"]
+    allow_last_page = True
 
     def get_page_number(self):
         """
@@ -156,29 +158,20 @@ class PageNumberPagination(BasePagination):
         try:
             page_number = int(page_number)
         except (TypeError, ValueError):
-            raise APIException(
-                status_code=500,
-                response_detail="页码必须为数字或对应的标识"
-            )
+            raise PaginationError(detail=_("The page number must be a number or page string"))
 
         if page_number < 1:
             if self.allow_first_page:
                 page_number = 1
             else:
-                raise APIException(
-                    status_code=500,
-                    response_detail="页码必须大于1"
-                )
+                raise PaginationError(detail=_("The page number must be greater than 1"))
 
         if page_number > num_pages:
             if self.allow_last_page:
                 page_number = num_pages
 
             if not self.allow_empty_page:
-                raise APIException(
-                    status_code=500,
-                    response_detail="页码超过总页码，导致空列表"
-                )
+                raise PaginationError(detail=_("The page number exceeds the total page number"))
 
         return page_number
 
@@ -187,8 +180,8 @@ class PageNumberPagination(BasePagination):
         加载分页相关的配置
         :return:
         """
-        if hasattr(self.request_handler, "get_paginate_settings"):
-            paginate_settings = getattr(self.request_handler, "get_paginate_settings")()
+        if hasattr(self.request_handler, "overload_paginate_settings"):
+            paginate_settings = getattr(self.request_handler, "overload_paginate_settings")()
             if paginate_settings:
                 for k, v in paginate_settings.items():
                     setattr(self, k, v)
@@ -229,7 +222,9 @@ class PageNumberPagination(BasePagination):
 
         if self.page_size_query_param:
             try:
-                page_size = self.request_handler.get_query_argument(self.page_size_query_param, self.page_size)
+                page_size = self.request_handler.get_query_argument(
+                    self.page_size_query_param, self.page_size
+                )
                 return _positive_int(page_size, strict=True, cutoff=self.max_page_size)
             except (TypeError, KeyError, ValueError):
                 pass
@@ -271,10 +266,12 @@ class LimitOffsetPagination(BasePagination):
     """
     记录位置分页
     """
-    default_limit = settings.PAGINATION["limit_offset"]["default_limit"]
-    limit_query_param = settings.PAGINATION["limit_offset"]["limit_query_param"]
-    offset_query_param = settings.PAGINATION["limit_offset"]["offset_query_param"]
-    max_limit = settings.PAGINATION["limit_offset"]["max_limit"]
+    # 默认分页列表条目数
+    default_limit = 10
+    limit_query_param = 'limit'
+    offset_query_param = 'offset'
+    # 默认最大的列表条目数, 默认不限制
+    max_limit = None
 
     @staticmethod
     def get_count(queryset):
@@ -288,8 +285,8 @@ class LimitOffsetPagination(BasePagination):
         加载分页相关的配置
         :return:
         """
-        if hasattr(self.request_handler, "get_paginate_settings"):
-            paginate_settings = getattr(self.request_handler, "get_paginate_settings")()
+        if hasattr(self.request_handler, "overload_paginate_settings"):
+            paginate_settings = getattr(self.request_handler, "overload_paginate_settings")()
             if paginate_settings:
                 for k, v in paginate_settings.items():
                     setattr(self, k, v)
@@ -326,7 +323,9 @@ class LimitOffsetPagination(BasePagination):
     def limit(self):
         if self.limit_query_param:
             try:
-                limit = self.request_handler.get_query_argument(self.limit_query_param, self.default_limit)
+                limit = self.request_handler.get_query_argument(
+                    self.limit_query_param, self.default_limit
+                )
                 return _positive_int(limit, strict=True, cutoff=self.max_limit)
             except (TypeError, KeyError, ValueError):
                 pass

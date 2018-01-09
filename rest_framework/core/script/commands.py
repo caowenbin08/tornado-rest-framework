@@ -9,12 +9,13 @@ import errno
 import shutil
 import inspect
 import argparse
-import tornado.web
-import tornado.ioloop
+import asyncio
 from os.path import join
 from importlib import import_module
 
+import tornado.web
 from tornado import template
+from tornado.platform.asyncio import AsyncIOMainLoop
 from rest_framework import conf
 from rest_framework.conf import settings
 from rest_framework.core.exceptions import CommandError
@@ -120,19 +121,27 @@ class Command(object):
                 default = kwargs[arg]
 
                 if isinstance(default, bool):
-                    options.append(Option('-%s' % arg[0],
-                                          '--%s' % arg,
-                                          action="store_true",
-                                          dest=arg,
-                                          required=False,
-                                          default=default))
+                    options.append(
+                        Option(
+                            '-%s' % arg[0],
+                            '--%s' % arg,
+                            action="store_true",
+                            dest=arg,
+                            required=False,
+                            default=default
+                        )
+                    )
                 else:
-                    options.append(Option('-%s' % arg[0],
-                                          '--%s' % arg,
-                                          dest=arg,
-                                          type=str,
-                                          required=False,
-                                          default=default))
+                    options.append(
+                        Option(
+                            '-%s' % arg[0],
+                            '--%s' % arg,
+                            dest=arg,
+                            type=str,
+                            required=False,
+                            default=default
+                        )
+                    )
 
             else:
                 options.append(Option(arg, type=str))
@@ -219,16 +228,16 @@ class TemplateMix(object):
             try:
                 os.makedirs(top_dir)
             except OSError as e:
-                raise CommandError("'%s'目录已经存在" % top_dir if e.errno == errno.EEXIST else e)
+                raise CommandError("The directory ('%s') already exists" % top_dir
+                                   if e.errno == errno.EEXIST else e)
         else:
             top_dir = os.path.abspath(os.path.expanduser(target))
 
         if not os.path.exists(top_dir):
-            raise CommandError("'%s'目录不存在，请先创建此目录" % top_dir)
+            raise CommandError("The directory ('%s') does not exist. Please create this directory "
+                               "first" % top_dir)
 
-        # path.join(settings.__path__[0], 'conf', subdir)
         template_dir = join(conf.__path__[0], 'templates', app_or_project)
-        print("-------asdfads---", template_dir)
         prefix_length = len(template_dir) + 1
 
         for root, dirs, files in os.walk(template_dir):
@@ -270,15 +279,18 @@ class TemplateMix(object):
                     shutil.copymode(old_path, new_path)
                     self.make_writeable(new_path)
                 except OSError:
-                    self.stderr.write("无法设置权限在{path}，请检查文件系统设置".format(path=new_path))
+                    self.stderr.write(
+                        "Can not set permissions on %s, check file system settings." % new_path
+                    )
 
     @staticmethod
     def validate_name(name):
         if name is None:
-            raise CommandError("项目(或应用)名不能为空")
+            raise CommandError("Project (or application) name can not be empty")
 
         if not PATTERN.match(name):
-            raise CommandError("项目(或应用)名必须由字母或下划线组成，但开头或结尾必须为字母")
+            raise CommandError("The project (or application) name must consist of a letter"
+                               " or underscore, but the beginning or end must be a letter")
 
     @staticmethod
     def make_writeable(filename):
@@ -387,7 +399,7 @@ class Shell(Command):
 
 
 class Server(Command):
-    help = description = '启动服务'
+    help = description = "Start the service"
 
     def get_options(self):
 
@@ -396,13 +408,13 @@ class Server(Command):
             Option('-p', '--port',
                    dest='port',
                    type=int,
-                   help='应用端口,默认为5000',
+                   help="Application port, the default is 5000",
                    default=5000),
 
             Option('-d', '--debug',
                    action='store_true',
                    dest='use_debugger',
-                   help='是否启动调试模式',
+                   help="Whether to start the debug mode",
                    default=None),
         )
 
@@ -420,18 +432,35 @@ class Server(Command):
             urlconf_module = import_module(urlconf_module)
 
         urlpatterns = getattr(urlconf_module, 'urlpatterns', [])
-        setting_data = settings.dict_data
+        app_settings = dict(
+            gzip=True,
+            debug=settings.DEBUG,
+            xsrf_cookies=settings.XSRF_COOKIES
+        )
         if use_debugger is not None:
-            setting_data["debug"] = use_debugger
-        app = tornado.web.Application(urlpatterns, **settings.dict_data)
-        app.listen(port)
+            app_settings["debug"] = use_debugger
+
+        AsyncIOMainLoop().install()
+        loop = asyncio.get_event_loop()
+        app = tornado.web.Application(urlpatterns, **app_settings)
+        # xheaders 设为true,是获得设置代理也能获得客户端真正IP
+        app.listen(port, xheaders=True)
         print("http://0.0.0.0:{port}".format(port=port))
-        tornado.ioloop.IOLoop.current().start()
+        try:
+            loop.run_forever()
+        except KeyboardInterrupt:
+            sys.stderr.flush()
+        finally:
+            loop.close()
 
 
 class StartProject(Command, TemplateMix):
-    help = "创建项目"
-    description = "必须给一个项目名在当前目录中或指定目录中创建，如果没有指定目录，则在当前目录下加项目名创建"
+    """
+    必须给一个项目名在当前目录中或指定目录中创建，如果没有指定目录，则在当前目录下加项目名创建
+    """
+    help = "Create a project"
+    description = ("Creates a project directory structure for the given project "
+                   "name in the current directory or optionally in the given directory.")
 
     def get_options(self):
 
@@ -440,13 +469,13 @@ class StartProject(Command, TemplateMix):
             Option('-n', '--name',
                    dest='project_name',
                    type=str,
-                   help='项目名',
+                   help="Project name",
                    default=""),
 
             Option('-d', '--directory',
                    dest='target',
                    nargs='?',
-                   help='项目所在目录，如果没有指定，则在当前目录下加项目名创建'),
+                   help="Optional destination directory"),
         )
 
         return options
@@ -459,7 +488,10 @@ class StartProject(Command, TemplateMix):
         except ImportError:
             pass
         else:
-            raise CommandError("{name}与现有的Python模块的名称冲突,不能作为项目名称".format(name=project_name))
+            raise CommandError(
+                "{name} conflicts with the name of an existing Python module and cannot be used "
+                "as a project name. Please try another name.".format(name=project_name)
+            )
 
         options = dict(project_name=project_name)
         return self.create('project', project_name, target, **options)
