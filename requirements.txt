@@ -1,5 +1,1 @@
-tornado==4.5.2
-peewee==2.10.1
-nose
-
-PyMySQL==0.7.11
+tornado>=4.5.2

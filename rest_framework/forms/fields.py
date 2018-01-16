@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
-import os
-import copy
-import datetime
 import re
 import uuid
+import copy
 import logging
+import datetime
 import itertools
+import collections
 from io import BytesIO
 from urllib.parse import urlsplit, urlunsplit
 from decimal import Decimal, DecimalException
@@ -14,11 +14,12 @@ from rest_framework.conf import settings
 from rest_framework.core.translation import gettext as _
 from rest_framework.core import validators
 from rest_framework.utils import functional
+from rest_framework.utils.cached_property import cached_property
 from rest_framework.utils.lazy import lazy
 from rest_framework.utils.transcoder import force_text
 from rest_framework.core.safe import hashers
-from rest_framework.core.exceptions import ValidationError
-from rest_framework.utils.constants import EMPTY_VALUES, FILE_INPUT_CONTRADICTION
+from rest_framework.core.exceptions import ValidationError, SkipFieldError, ErrorList
+from rest_framework.utils.constants import EMPTY_VALUES, FILE_INPUT_CONTRADICTION, empty, REGEX_TYPE
 
 __author__ = 'caowenbin'
 
@@ -27,44 +28,52 @@ __all__ = (
     'DateField', 'TimeField', 'DateTimeField',
     'EmailField', 'FileField', 'ImageField', 'URLField',
     'BooleanField', 'NullBooleanField', 'ChoiceField', 'MultipleChoiceField',
-    'MultiValueField', 'FloatField', 'DecimalField', 'SplitDateTimeField',
-    'IPAddressField', 'FilePathField', 'UUIDField', 'PasswordField', 'IdentifierField'
+    'MultiValueField', "ListField", 'FloatField', 'DecimalField',
+    'IPAddressField', 'UUIDField', 'PasswordField', 'IdentifierField',
+    "BoundField"
 )
 
 rest_log = logging.getLogger("tornado.rest_framework")
-empty = object()
 
-REGEX_TYPE = type(re.compile(''))
+NOT_DISABLED_REQUIRED = 'May not set both `disabled` and `required`'
+NOT_REQUIRED_DEFAULT = 'May not set both `required` and `default`'
 
 
 class Field(object):
     default_validators = []  # Default set of validators
     default_error_messages = {
         'required': _('This field is required'),
-        'null': _('This field may not be null.')
+        'null': _('This field may not be null')
     }
     empty_values = list(EMPTY_VALUES)
     creation_counter = 0
     initial = None
 
-    def __init__(self, required=True, verbose_name=None, default=empty, source=None,
+    def __init__(self, required=True, verbose_name=None, default=empty, initial=empty, source=None,
                  error_messages=None, null=False, validators=(), disabled=False):
         """
 
         :param required: 默认情况下，每个 Field 类假定该值是必需的，因此如果您传递一个空值 - None 或空字符串（""），
         则 clean() 将引发 ValidationError 异常
         :param verbose_name: 描述性文本
-        :param default: 初始值，即默认值
+        :param default: 默认值
+        :param initial: 初始化值
         :param error_messages: 错误信息
         :param validators:此字段的验证函数列表
         :param null: 值是否可以为None，默认不允许，True代表允许
         :param disabled: disabled 布尔参数设置为 True 时，
         用户篡改了字段的值提交到服务器，它也将被忽略，以支持表单初始数据的值
         """
+        if required is None:
+            required = default is empty and not disabled
+
+        assert not (disabled and required), NOT_DISABLED_REQUIRED
+        assert not (required and default is not empty), NOT_REQUIRED_DEFAULT
 
         self.required = required
         self.verbose_name = verbose_name
-        self.default = self.initial if (default is empty) else default
+        self.default = default
+        self.initial = self.initial if (initial is empty) else initial
         self.null = null
         self.source = source
         self.disabled = disabled
@@ -78,6 +87,9 @@ class Field(object):
             messages.update(getattr(c, 'default_error_messages', {}))
         messages.update(error_messages or {})
         self.error_messages = messages
+
+        if not isinstance(validators, (tuple, list)):
+            validators = (validators, )
 
         self.validators = list(itertools.chain(self.default_validators, validators))
 
@@ -143,7 +155,7 @@ class Field(object):
         :param value:
         :return:
         """
-        if value is empty:
+        if value is empty and not self.parent.empty_permitted:
             if callable(self.default):
                 if hasattr(self.default, 'set_context'):
                     self.default.set_context(self)
@@ -156,7 +168,7 @@ class Field(object):
             if hasattr(customize_method, 'set_context'):
                 customize_method.set_context(self)
 
-            value = customize_method()
+            value = customize_method(value)
 
         return value
 
@@ -168,23 +180,25 @@ class Field(object):
         Raises ValidationError for any errors.
         """
         value = self.get_customize_data(value)
-        value = self.to_python(value)
+        if value is empty and self.parent.empty_permitted:
+            raise SkipFieldError()
         self.validate(value)
+        value = self.to_python(value)
         self.run_validators(value)
         return value
 
-    # def bound_data(self, data, initial):
-    #     """
-    #     Return the value that should be shown for this field on render of a
-    #     bound form, given the submitted POST data for the field and the initial
-    #     data, if any.
-    #
-    #     For most fields, this will simply be data; FileFields need to handle it
-    #     a bit differently.
-    #     """
-    #     if self.disabled:
-    #         return initial
-    #     return data
+    def bound_data(self, data, initial):
+        """
+        Return the value that should be shown for this field on render of a
+        bound form, given the submitted POST data for the field and the initial
+        data, if any.
+
+        For most fields, this will simply be data; FileFields need to handle it
+        a bit differently.
+        """
+        if self.disabled:
+            return initial
+        return data
 
     def has_changed(self, initial, data):
         """
@@ -197,6 +211,10 @@ class Field(object):
         # always uses the initial value in this case.
         if self.disabled:
             return False
+
+        if data is empty:
+            return False
+
         try:
             data = self.to_python(data)
             if hasattr(self, '_coerce'):
@@ -210,14 +228,14 @@ class Field(object):
         data_value = data if data is not None else ''
         return initial_value != data_value
 
-    # def get_bound_field(self, form, field_name):
-    #     """
-    #     获取 Form 的实例和字段的名称。在访问模板中的字段时将使用返回值。很可能它将是 BoundField 的子类的实例。
-    #     :param form:
-    #     :param field_name:
-    #     :return:
-    #     """
-    #     return BoundField(form, self, field_name)
+    def get_bound_field(self, form, field_name):
+        """
+        获取 Form 的实例和字段的名称。在访问模板中的字段时将使用返回值。很可能它将是 BoundField 的子类的实例。
+        :param form:
+        :param field_name:
+        :return:
+        """
+        return BoundField(form, self, field_name)
 
     def __deepcopy__(self, memo):
         result = copy.copy(self)
@@ -526,7 +544,7 @@ class FileField(Field):
         return data
 
     def has_changed(self, initial, data):
-        if data is None:
+        if data is empty:
             return False
         return True
 
@@ -622,7 +640,7 @@ class URLField(CharField):
 
 class BooleanField(Field):
     default_error_messages = {
-        'invalid': _('"{input}" is not a valid boolean')
+        'invalid': _('"%s" is not a valid boolean')
     }
     initial = False
     TRUE_VALUES = {
@@ -649,7 +667,7 @@ class BooleanField(Field):
         elif value in self.FALSE_VALUES:
             return False
         else:
-            raise ValidationError(self.error_messages['invalid'], code='invalid')
+            raise ValidationError(self.error_messages['invalid'], code='invalid', params=value)
 
 
 class NullBooleanField(BooleanField):
@@ -658,7 +676,7 @@ class NullBooleanField(BooleanField):
     cleaned to None.
     """
     default_error_messages = {
-        'invalid': _('"{input}" is not a valid boolean')
+        'invalid': _('"%s" is not a valid boolean')
     }
     initial = None
     TRUE_VALUES = {'t', 'T', 'true', 'True', 'TRUE', '1', 1, True}
@@ -673,7 +691,7 @@ class NullBooleanField(BooleanField):
         elif value in self.NULL_VALUES:
             return None
         else:
-            raise ValidationError(self.error_messages['invalid'], code='invalid')
+            raise ValidationError(self.error_messages['invalid'], code='invalid', params=value)
 
 
 class ChoiceField(Field):
@@ -681,7 +699,7 @@ class ChoiceField(Field):
     选项字段类型
     """
     default_error_messages = {
-        'invalid_choice': "'{input}' is not in the options ({choices})"
+        'invalid_choice': "'%(input)s' is not in the options (%(choices)s)"
     }
 
     def __init__(self, choices, *args, **kwargs):
@@ -704,7 +722,7 @@ class ChoiceField(Field):
 
 class MultipleChoiceField(ChoiceField):
     default_error_messages = {
-        'invalid_choice': _('"{input}" is not a valid choice'),
+        'invalid_choice': _('"%(input)s" is not a valid choice'),
         'invalid_list': _('Enter a list of values'),
     }
 
@@ -742,39 +760,85 @@ class MultipleChoiceField(ChoiceField):
         return data_set != initial_set
 
 
+class _UnvalidatedField(Field):
+    pass
+
+
+class ListField(Field):
+    """
+    列表字段
+    """
+    child = _UnvalidatedField()
+    initial = []
+    default_error_messages = {
+        'not_a_list': _('Expected a list of items but got type "%(input_type)s"'),
+        'empty': _('This list may not be empty'),
+        'min_length': _('Ensure this field has at least {min_length} elements'),
+        'max_length': _('Ensure this field has no more than {max_length} elements')
+    }
+
+    def __init__(self, child=None, *args, **kwargs):
+        self.child = copy.deepcopy(self.child) if child is None else child
+        self.allow_empty = kwargs.pop('allow_empty', True)
+        self.max_length = kwargs.pop('max_length', None)
+        self.min_length = kwargs.pop('min_length', None)
+        self.child.source = None
+
+        super(ListField, self).__init__(*args, **kwargs)
+        self.child.bind(field_name='', parent=self)
+
+        if self.max_length is not None:
+            message = self.error_messages['max_length'].format(max_length=self.max_length)
+            self.validators.append(validators.MaxLengthValidator(self.max_length, message=message))
+        if self.min_length is not None:
+            message = self.error_messages['min_length'].format(min_length=self.min_length)
+            self.validators.append(validators.MinLengthValidator(self.min_length, message=message))
+
+    def validate(self, value):
+        pass
+
+    def clean(self, value):
+        if isinstance(value, type('')) or isinstance(value, collections.Mapping)\
+                or not hasattr(value, '__iter__'):
+            raise ValidationError(
+                self.error_messages['not_a_list'],
+                code='not_a_list',
+                params=dict(input_type=type(value).__name__)
+            )
+
+        if not self.allow_empty and len(value) == 0:
+            raise ValidationError(
+                self.error_messages['empty'],
+                code='empty'
+            )
+        return [self.child.clean(item) for item in value]
+
+
 class MultiValueField(Field):
     """
-    A Field that aggregates the logic of multiple Fields.
-
-    Its clean() method takes a "decompressed" list of values, which are then
-    cleaned into a single value according to self.fields. Each value in
-    this list is cleaned by the corresponding field -- the first value is
-    cleaned by the first field, the second value is cleaned by the second
-    field, etc. Once all fields are cleaned, the list of clean values is
-    "compressed" into a single value.
-
-    Subclasses should not have to implement clean(). Instead, they must
-    implement compress(), which takes a list of valid values and returns a
-    "compressed" version of those values -- a single value.
-
-    You'll probably want to use this with MultiWidget.
+    多字段组合，例如
+    fields=(DateField(), TimeField())
     """
     default_error_messages = {
         'invalid': _('Enter a list of values'),
         'incomplete': _('Enter a complete value'),
     }
+    fields = _UnvalidatedField()
 
-    def __init__(self, fields=(), *args, **kwargs):
+    def __init__(self, fields=None, *args, **kwargs):
         self.require_all_fields = kwargs.pop('require_all_fields', True)
+        fields = (copy.deepcopy(self.fields),) if fields is None else fields if isinstance(
+            fields, (tuple, list)) else (fields, )
+        self.max_length = kwargs.pop('max_length', None)
+        self.min_length = kwargs.pop('min_length', None)
         super(MultiValueField, self).__init__(*args, **kwargs)
         for f in fields:
-            f.error_messages.setdefault('incomplete',
-                                        self.error_messages['incomplete'])
+            f.source = None
+            f.bind(field_name='', parent=self)
+            f.error_messages.setdefault('incomplete', self.error_messages['incomplete'])
             if self.require_all_fields:
-                # Set 'required' to False on the individual fields, because the
-                # required validation will be handled by MultiValueField, not
-                # by those individual fields.
                 f.required = False
+
         self.fields = fields
 
     def __deepcopy__(self, memo):
@@ -804,30 +868,25 @@ class MultiValueField(Field):
                     return self.compress([])
         else:
             raise ValidationError(self.error_messages['invalid'], code='invalid')
+
         for i, field in enumerate(self.fields):
             try:
                 field_value = value[i]
             except IndexError:
                 field_value = None
+
             if field_value in self.empty_values:
                 if self.require_all_fields:
-                    # Raise a 'required' error if the MultiValueField is
-                    # required and any field is empty.
                     if self.required:
                         raise ValidationError(self.error_messages['required'], code='required')
+
                 elif field.required:
-                    # Otherwise, add an 'incomplete' error to the list of
-                    # collected errors and skip field cleaning, if a required
-                    # field is empty.
                     if field.error_messages['incomplete'] not in errors:
                         errors.append(field.error_messages['incomplete'])
                     continue
             try:
                 clean_data.append(field.clean(field_value))
             except ValidationError as e:
-                # Collect all validation errors in a single list, which we'll
-                # raise at the end of clean(), rather than raising a single
-                # exception for the first error we encounter. Skip duplicates.
                 errors.extend(m for m in e.error_list if m not in errors)
         if errors:
             raise ValidationError(errors)
@@ -838,109 +897,31 @@ class MultiValueField(Field):
         return out
 
     def compress(self, data_list):
-        """
-        Returns a single value for the given list of values. The values can be
-        assumed to be valid.
+        return data_list
 
-        For example, if this MultiValueField was instantiated with
-        fields=(DateField(), TimeField()), this might return a datetime
-        object created by combining the date and time in data_list.
-        """
-        raise NotImplementedError('Subclasses must implement this method.')
+    def decompress(self, initial):
+        return [initial]
 
     def has_changed(self, initial, data):
+        if self.parent.empty_permitted and data is empty:
+            return False
+
         if initial is None:
-            initial = ['' for x in range(0, len(data))]
+            initial = ['' for _ in range(0, len(data))]
         else:
             if not isinstance(initial, list):
-                initial = self.widget.decompress(initial)
+                initial = self.decompress(initial)
+
         for field, initial, data in zip(self.fields, initial, data):
             try:
                 initial = field.to_python(initial)
             except ValidationError:
                 return True
+
             if field.has_changed(initial, data):
                 return True
+
         return False
-
-
-class FilePathField(ChoiceField):
-    def __init__(self, path, match=None, recursive=False, allow_files=True,
-                 allow_folders=False, required=True, *args, **kwargs):
-        self.path, self.match, self.recursive = path, match, recursive
-        self.allow_files, self.allow_folders = allow_files, allow_folders
-        super(FilePathField, self).__init__(
-            choices=(), required=required, *args, **kwargs
-        )
-
-        if self.required:
-            self.choices = []
-        else:
-            self.choices = [("", "---------")]
-
-        if self.match is not None:
-            self.match_re = re.compile(self.match)
-
-        if recursive:
-            for root, dirs, files in sorted(os.walk(self.path)):
-                if self.allow_files:
-                    for f in files:
-                        if self.match is None or self.match_re.search(f):
-                            f = os.path.join(root, f)
-                            self.choices.append((f, f.replace(path, "", 1)))
-                if self.allow_folders:
-                    for f in dirs:
-                        if f == '__pycache__':
-                            continue
-                        if self.match is None or self.match_re.search(f):
-                            f = os.path.join(root, f)
-                            self.choices.append((f, f.replace(path, "", 1)))
-        else:
-            try:
-                for f in sorted(os.listdir(self.path)):
-                    if f == '__pycache__':
-                        continue
-                    full_file = os.path.join(self.path, f)
-                    if (((self.allow_files and os.path.isfile(full_file)) or
-                             (self.allow_folders and os.path.isdir(full_file))) and
-                            (self.match is None or self.match_re.search(f))):
-                        self.choices.append((full_file, f))
-            except OSError:
-                pass
-
-
-class SplitDateTimeField(MultiValueField):
-    default_error_messages = {
-        'invalid_date': _('Enter a valid date'),
-        'invalid_time': _('Enter a valid time'),
-    }
-
-    def __init__(self, input_date_formats=None, input_time_formats=None, *args, **kwargs):
-        errors = self.default_error_messages.copy()
-        if 'error_messages' in kwargs:
-            errors.update(kwargs['error_messages'])
-        localize = kwargs.get('localize', False)
-        fields = (
-            DateField(input_formats=input_date_formats,
-                      error_messages={'invalid': errors['invalid_date']},
-                      localize=localize),
-            TimeField(input_formats=input_time_formats,
-                      error_messages={'invalid': errors['invalid_time']},
-                      localize=localize),
-        )
-        super(SplitDateTimeField, self).__init__(fields, *args, **kwargs)
-
-    def compress(self, data_list):
-        if data_list:
-            # Raise a validation error if time or date is empty
-            # (possible if SplitDateTimeField has required=False).
-            if data_list[0] in self.empty_values:
-                raise ValidationError(self.error_messages['invalid_date'], code='invalid_date')
-            if data_list[1] in self.empty_values:
-                raise ValidationError(self.error_messages['invalid_time'], code='invalid_time')
-            result = datetime.datetime.combine(*data_list)
-            return result
-        return None
 
 
 class UUIDField(CharField):
@@ -1048,3 +1029,43 @@ class IdentifierField(CharField):
         assert self.protocol in ("both", "phone", "email"), "`IdentifierField.protocol`不正确"
         super(IdentifierField, self).__init__(*args, **kwargs)
         self.validators.append(validators.IdentifierValidator(self.protocol))
+
+
+class BoundField(object):
+    def __init__(self, form, field, name):
+        self.form = form
+        self.field = field
+        self.name = name
+
+    @property
+    def errors(self):
+        """
+        Returns an ErrorList for this field. Returns an empty ErrorList
+        if there are none.
+        """
+        return self.form.errors.get(self.name, ErrorList())
+
+    @property
+    def data(self):
+        """
+        Returns the data for this BoundField, or None if it wasn't given.
+        """
+        return self.field.value_from_datadict(self.form.data, self.form.files)
+
+    def value(self):
+        """
+        Returns the value for this BoundField, using the initial value if
+        the form is not bound or the data otherwise.
+        """
+        data = self.initial
+        if self.form.is_bound:
+            data = self.field.bound_data(self.data, data)
+        return self.field.prepare_value(data)
+
+    @cached_property
+    def initial(self):
+        data = self.form.get_initial_for_field(self.field, self.name)
+
+        if isinstance(data, (datetime.datetime, datetime.time)):
+            data = data.replace(microsecond=0)
+        return data

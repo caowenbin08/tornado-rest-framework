@@ -41,7 +41,8 @@ def get_form_field(model_field, **kwargs):
     defaults = {
         'required': not (model_field.default is not None or model_field.null),
         'default': model_field.default,
-        'null': model_field.null
+        'null': model_field.null,
+        "validators": list(kwargs.pop("validators", []))
     }
 
     if isinstance(model_field, models.PrimaryKeyField):
@@ -61,7 +62,7 @@ def get_form_field(model_field, **kwargs):
         validator = UniqueValidator(
             queryset=model_field.model_class.select(),
             message=unique_error_message)
-        defaults['validators'] = [validator]
+        defaults['validators'].append(validator)
 
     choices = model_field.choices
     form_class = None
@@ -76,14 +77,13 @@ def get_form_field(model_field, **kwargs):
     return form_class(**defaults)
 
 
-def fields_for_model(model, fields=None, exclude=None, extra_kwargs=None, error_messages=None):
+def fields_for_model(model, fields=None, exclude=None, extra_kwargs=None):
     """
     根据model字段转化为form字段
     :param model:
     :param fields:
     :param exclude:
     :param extra_kwargs:
-    :param error_messages:
     :return:
     """
     opts = model._meta
@@ -96,9 +96,6 @@ def fields_for_model(model, fields=None, exclude=None, extra_kwargs=None, error_
             continue
 
         kwargs = extra_kwargs.get(field_name, {}) if extra_kwargs else {}
-        if error_messages and field_name in error_messages:
-            kwargs['error_messages'] = error_messages[field_name]
-
         field_dict[field_name] = get_form_field(field, **kwargs)
     return field_dict
 
@@ -109,7 +106,6 @@ class ModelFormOptions(object):
         self.fields = getattr(options, 'fields', None)
         self.exclude = getattr(options, 'exclude', None)
         self.extra_kwargs = getattr(options, 'extra_kwargs', None)
-        self.error_messages = getattr(options, 'error_messages', None)
 
 
 class ModelFormMetaclass(DeclarativeFieldsMetaclass):
@@ -120,42 +116,40 @@ class ModelFormMetaclass(DeclarativeFieldsMetaclass):
         if bases == (BaseModelForm,):
             return new_class
 
-        opts = new_class._meta = ModelFormOptions(getattr(new_class, 'Meta', None))
+        form_opts = new_class._meta = ModelFormOptions(getattr(new_class, 'Meta', None))
 
-        if opts.model:
+        if form_opts.model:
             # If a model is defined, extract form fields from it.
-            if opts.fields is None and opts.exclude is None:
+            if form_opts.fields is None and form_opts.exclude is None:
                 raise ImproperlyConfigured(
                     "Creating a ModelForm without either the 'fields' attribute "
                     "or the 'exclude' attribute is prohibited; form %s "
                     "needs updating." % name
                 )
 
-            if opts.fields == ALL_FIELDS:
-                opts.fields = None
+            if form_opts.fields == ALL_FIELDS:
+                form_opts.fields = None
 
-            fields = fields_for_model(
-                model=opts.model,
-                fields=opts.fields,
-                exclude=opts.exclude,
-                extra_kwargs=opts.extra_kwargs,
-                error_messages=opts.error_messages
+            model_fields = fields_for_model(
+                model=form_opts.model,
+                fields=form_opts.fields,
+                exclude=form_opts.exclude,
+                extra_kwargs=form_opts.extra_kwargs
             )
 
             # make sure opts.fields doesn't specify an invalid field
-            none_model_fields = [k for k, v in fields.items() if not v]
+            none_model_fields = [k for k, v in model_fields.items() if not v]
             missing_fields = (set(none_model_fields) - set(new_class.declared_fields.keys()))
             if missing_fields:
                 message = 'Unknown field(s) (%s) specified for %s'
-                message = message % ', '.join(missing_fields), opts.model.__name__
+                message = message % ', '.join(missing_fields), form_opts.model.__name__
                 raise FieldError(message)
-            # Override default model fields with any custom declared ones
-            # (plus, include all the other declared fields).
-            fields.update(new_class.declared_fields)
+            model_form_fields = model_fields
+            model_form_fields.update(new_class.declared_fields)
         else:
-            fields = new_class.declared_fields
+            model_form_fields = new_class.declared_fields
 
-        new_class.base_fields = fields
+        new_class.base_fields = model_form_fields
 
         return new_class
 
@@ -244,7 +238,7 @@ class BaseModelForm(BaseForm):
 
         validated_data = dict(list(self.cleaned_data.items()) + list(kwargs.items()))
 
-        if self.instance is not None:
+        if self.instance is not None and self.has_changed():
             self.instance = self.update(validated_data)
             assert self.instance is not None, '`update()` did not return an object instance.'
 

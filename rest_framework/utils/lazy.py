@@ -4,11 +4,9 @@ import copy
 import operator
 from functools import total_ordering, wraps
 
+from rest_framework.utils.constants import empty
 
 __author__ = 'caowenbin'
-
-
-empty = object()
 
 
 def new_method_proxy(func):

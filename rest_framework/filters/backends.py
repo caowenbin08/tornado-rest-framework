@@ -48,10 +48,10 @@ class SearchFilter(BaseFilterBackend):
     # 接收搜索值的参数变量名
     search_param = settings.SEARCH_PARAM
     lookup_prefixes = {
-        '^': (models.OP.LIKE, '%s%%'),
-        '=': (models.OP.EQ, '%s'),
-        '@': (models.OP.ILIKE, '%%%s%%'),
-        '$': (models.OP.LIKE, '%%%s'),
+        '^': (models.OP.LIKE, '%s%%'),  # 前缀匹配
+        '=': (models.OP.EQ, '%s'),      # 完整匹配
+        '@': (models.OP.ILIKE, '%%%s%%'),  #模糊匹配
+        '$': (models.OP.LIKE, '%%%s'),    # 后缀匹配
     }
 
     def get_search_terms(self, request_handler):
@@ -72,6 +72,7 @@ class SearchFilter(BaseFilterBackend):
         :return:
         """
         lookup = self.lookup_prefixes.get(field_name[0])
+
         if lookup:
             field_name = field_name[1:]
         else:
@@ -187,9 +188,25 @@ class FilterBackend(BaseFilterBackend):
     default_filter_set = filterset.FilterSet
     raise_exception = True
 
+    lookup_prefixes = {
+        '^': 'istartswith',  # 前缀匹配
+        '=': "exact",      # 完整匹配
+        '@': 'icontains',  #模糊匹配
+        '$': 'iendswith',    # 后缀匹配
+    }
+
     def get_filter_class(self, request_handler, queryset=None):
         filter_class = getattr(request_handler, 'filter_class', None)
-        filter_fields = getattr(request_handler, 'filter_fields', None)
+        filter_fields = getattr(request_handler, 'filter_fields', ())
+        filter_field_lookup_map = {}
+        for filter_field in filter_fields:
+            lookup = self.lookup_prefixes.get(filter_field[0])
+            if lookup:
+                filter_field = filter_field[1:]
+            else:
+                lookup = "exact"
+
+            filter_field_lookup_map[filter_field] = [lookup]
 
         if filter_class:
             filter_model = getattr(filter_class, "_meta").model
@@ -202,13 +219,13 @@ class FilterBackend(BaseFilterBackend):
 
             return filter_class
 
-        if filter_fields and queryset is not None:
+        if filter_field_lookup_map and queryset is not None:
             MetaBase = getattr(self.default_filter_set, 'Meta', object)
 
             class AutoFilterSet(self.default_filter_set):
                 class Meta(MetaBase):
                     model = queryset.model_class
-                    fields = filter_fields
+                    fields = filter_field_lookup_map
 
             return AutoFilterSet
 
@@ -224,34 +241,3 @@ class FilterBackend(BaseFilterBackend):
             return filterset.qs
         return queryset
 
-
-class DjangoObjectPermissionsFilter(BaseFilterBackend):
-    """
-    A filter backend that limits results to those where the requesting user
-    has read object level permissions.
-    """
-    def __init__(self):
-        assert guardian, 'Using DjangoObjectPermissionsFilter, but django-guardian is not installed'
-
-    perm_format = '%(app_label)s.view_%(model_name)s'
-
-    def filter_queryset(self, request, queryset, view):
-        # We want to defer this import until run-time, rather than import-time.
-        # See https://github.com/encode/django-rest-framework/issues/4608
-        # (Also see #1624 for why we need to make this import explicitly)
-        from guardian.shortcuts import get_objects_for_user
-
-        extra = {}
-        user = request.user
-        model_cls = queryset.model
-        kwargs = {
-            'app_label': model_cls._meta.app_label,
-            'model_name': model_cls._meta.model_name
-        }
-        permission = self.perm_format % kwargs
-        if tuple(guardian.VERSION) >= (1, 3):
-            # Maintain behavior compatibility with versions prior to 1.3
-            extra = {'accept_global_perms': False}
-        else:
-            extra = {}
-        return get_objects_for_user(user, permission, queryset, **extra)

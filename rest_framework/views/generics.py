@@ -100,14 +100,6 @@ class BaseAPIHandler(RequestHandler, BabelTranslatorMixin):
             raise APIException(error_detail, status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE)
 
         self.request_data = parser.parse(self.request)
-        # content_type = self.request.headers.get("Content-Type", "")
-        #
-        # if content_type == "application/json":
-        #     self.json_data = json_decode(self.request.body) if self.request.body else {}
-        #
-        # elif content_type in ("application/x-www-form-urlencoded", "multipart/form-data"):
-        #     self.json_data = self.request.body_arguments
-
         self.request.data = self.request_data
 
     @gen.coroutine
@@ -222,7 +214,11 @@ class BaseAPIHandler(RequestHandler, BabelTranslatorMixin):
             error_response = Response(data, status_code=exc.status_code, headers=headers)
 
         elif isinstance(exc, HTTPError):
-            data = {'error_detail': _('Not found')}
+            status_code = exc.status_code
+            if status_code == 405:
+                data = {'error_detail': _('The request method does not exist')}
+            else:
+                data = {'error_detail': _('Http Error')}
 
             error_response = Response(data, status_code=exc.status_code)
 
@@ -256,12 +252,8 @@ class GenericAPIHandler(BaseAPIHandler):
     lookup_url_kwarg = None
     # 分页处理类
     pagination_class = "rest_framework.core.pagination.PageNumberPagination"
-    # 页面模板名
-    template_name = ""
     # 修改或创建是否序列化实例对象返回, False代表只返回主键值，True代表返回实例对象
     need_obj_serializer = False
-    # 检查参数不正确是否抛出异常， False代表为抛出 True代表直接抛出ValidationError
-    form_valid_raise_except = False
     # 查询过滤处理类，主要是搜索、过滤
     filter_backend_list = (
         "rest_framework.filters.FilterBackend",
@@ -336,7 +328,7 @@ class GenericAPIHandler(BaseAPIHandler):
         except queryset.model_class.DoesNotExist:
             raise exceptions.APIException(
                 status_code=404,
-                response_detail=Response(data=self.error_msg_404) if self.error_msg_404 else None
+                detail=self.error_msg_404 if self.error_msg_404 else _("Resource data does not exist")
             )
 
     def get_object(self):
@@ -383,7 +375,7 @@ class GenericAPIHandler(BaseAPIHandler):
 
         return self.serializer_class
 
-    def get_form(self, form_class=None):
+    def get_form(self, form_class=None, **kwargs):
         """
         Returns an instance of the form to be used in this view
         :param form_class:
@@ -392,7 +384,9 @@ class GenericAPIHandler(BaseAPIHandler):
         if form_class is None:
             form_class = self.get_form_class()
 
-        return form_class(**self.get_form_kwargs())
+        form_kwargs = self.get_form_kwargs()
+        form_kwargs.update(kwargs)
+        return form_class(**form_kwargs)
 
     def get_form_class(self):
         """
@@ -411,10 +405,14 @@ class GenericAPIHandler(BaseAPIHandler):
             'data': self.request.data,
         }
 
+        if self.queryset is not None:
+            kwargs.update({'instance': self.get_object()})
+
         if self.request.method in ('POST', 'PUT'):
             kwargs.update({
                 'files': self.request.files,
             })
+
         return kwargs
 
     def overload_paginate_settings(self):
@@ -444,7 +442,8 @@ class GenericAPIHandler(BaseAPIHandler):
 
         return self.paginator.paginate_queryset(self, queryset)
 
-    def write_response(self, data, status_code=status.HTTP_200_OK, headers=None, content_type="application/json", **kwargs):
+    def write_response(self, data, status_code=status.HTTP_200_OK, headers=None,
+                       content_type="application/json", **kwargs):
         return Response(
             data=data,
             status_code=status_code,
@@ -486,6 +485,30 @@ class CreateAPIHandler(mixins.CreateModelMixin, GenericAPIHandler):
         return self.create(*args, **kwargs)
 
 
+class RetrieveAPIHandler(mixins.RetrieveModelMixin, GenericAPIHandler):
+    """
+    查看详情
+    """
+    async def get(self, *args, **kwargs):
+        return self.retrieve(*args, **kwargs)
+
+
+class UpdateAPIHandler(mixins.UpdateModelMixin, GenericAPIHandler):
+    """
+    修改
+    """
+    async def put(self, *args, **kwargs):
+        return self.update(*args, **kwargs)
+
+
+class DestroyAPIHandler(mixins.DestroyModelMixin, GenericAPIHandler):
+    """
+    删除对象
+    """
+    async def delete(self, *args, **kwargs):
+        return self.destroy(*args, **kwargs)
+
+
 class RetrieveUpdateAPIHandler(mixins.RetrieveModelMixin, mixins.UpdateModelMixin, GenericAPIHandler):
     """
     查看详情及修改
@@ -497,9 +520,4 @@ class RetrieveUpdateAPIHandler(mixins.RetrieveModelMixin, mixins.UpdateModelMixi
         return self.update(*args, **kwargs)
 
 
-class DestroyAPIHandler(mixins.DestroyModelMixin, GenericAPIHandler):
-    """
-    删除对象
-    """
-    async def delete(self, *args, **kwargs):
-        return self.destroy(*args, **kwargs)
+

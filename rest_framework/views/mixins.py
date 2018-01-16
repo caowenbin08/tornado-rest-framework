@@ -94,10 +94,8 @@ class UpdateModelMixin(object):
     修改实例对象
     """
     def update(self, *args, **kwargs):
-        instance = self.get_object()
-        form = self.get_form(instance=instance, data=self.json_data)
-
-        if form.is_valid(raise_exception=self.form_valid_raise_except):
+        form = self.get_form(empty_permitted=True)
+        if form.is_valid():
             instance = self.perform_update(form)
             if self.need_obj_serializer:
                 self.create_serializer(form)

@@ -1,3 +1,9 @@
+## 项目结构
+```
+   - rest_framework/
+     - bin/
+
+```
 安装依赖包
 pip install -r requirements.txt
 

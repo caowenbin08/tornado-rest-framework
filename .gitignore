@@ -5,7 +5,7 @@ __pycache__/
 
 # C extensions
 *.so
-
+*.pyc
 # Distribution / packaging
 .Python
 build/
@@ -102,3 +102,4 @@ ENV/
 admin/
 runserver.py
 settings.py
+.DS_Store

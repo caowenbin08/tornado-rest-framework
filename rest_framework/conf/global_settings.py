@@ -20,8 +20,6 @@ INSTALLED_APPS = []
 # 解析
 PARSER_CLASSES = (
     'rest_framework.core.parsers.JSONParser',
-    'rest_framework.core.parsers.FormParser',
-    'rest_framework.core.parsers.MultiPartParser'
 )
 # 注册密码加密方式
 PASSWORD_HASHERS = [

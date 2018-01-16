@@ -5,13 +5,12 @@
 from rest_framework.core.script.base import Manager
 from rest_framework.core.script.db import MigrateCommand
 from rest_framework.core.script.secretkey import SecretKeyCommand
-from rest_framework.core.script.commands import Group, Option, Command, Server, Shell, StartProject
+from rest_framework.core.script.commands import Group, Option, Command, Server, StartProject
 from rest_framework.core.script.cli import prompt, prompt_pass, prompt_bool, prompt_choices
 
 __all__ = [
     "manager",
     "Command",
-    "Shell",
     "Server",
     "StartProject",
     "Manager",

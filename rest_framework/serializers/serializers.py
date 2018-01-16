@@ -1,24 +1,149 @@
 # -*- coding: utf-8 -*-
-import inspect
 import copy
+import inspect
 from collections import OrderedDict
-from rest_framework.conf import settings
-from rest_framework.core.exceptions import ValidationError, ErrorDict, ErrorList, \
-    ImproperlyConfigured, FieldError
-from rest_framework.forms.fields import Field, FileField
 from rest_framework.core.db import models
+from rest_framework.core.exceptions import ImproperlyConfigured, FieldError
 from rest_framework.serializers.fields import (
     Field, CharField, DateTimeField, IntegerField, BooleanField, FloatField, DateField,
     TimeField, UUIDField
 )
-from rest_framework.utils.cached_property import cached_property
-from rest_framework.utils.functional import OrderedDictStorage
 from rest_framework.utils.constants import ALL_FIELDS
 
 __author__ = 'caowenbin'
 
-__all__ = ['Serializer', 'ModelSerializer']
-LIST_SERIALIZER_KWARGS = ('default', 'initial', 'source', 'instance', 'data')
+LIST_SERIALIZER_KWARGS = ('default', 'initial', 'source', 'instance')
+
+
+class BaseSerializer(Field):
+
+    def __init__(self, instance=None, **kwargs):
+        self.instance = instance
+        self._context = kwargs.pop('context', {})
+        kwargs.pop('many', None)
+        self._fields = None
+        self._data = None
+        super(BaseSerializer, self).__init__(**kwargs)
+
+    def __new__(cls, *args, **kwargs):
+        if kwargs.pop('many', False):
+            return cls.many_init(*args, **kwargs)
+        return super(BaseSerializer, cls).__new__(cls, *args, **kwargs)
+
+    @classmethod
+    def many_init(cls, *args, **kwargs):
+        allow_empty = kwargs.pop('allow_empty', None)
+        child_serializer = cls(*args, **kwargs)
+        list_kwargs = {
+            'child': child_serializer,
+        }
+        if allow_empty is not None:
+            list_kwargs['allow_empty'] = allow_empty
+        list_kwargs.update({
+            key: value for key, value in kwargs.items()
+            if key in LIST_SERIALIZER_KWARGS
+        })
+        meta = getattr(cls, 'Meta', None)
+        list_serializer_class = getattr(meta, 'list_serializer_class', ListSerializer)
+        return list_serializer_class(*args, **list_kwargs)
+
+    @property
+    def data(self):
+        if self._data is None:
+            self._data = self.to_representation(self.instance)
+        return self._data
+
+    @property
+    def fields(self):
+        if self._fields is None:
+            self._fields = OrderedDict()
+            fields = copy.deepcopy(self.base_fields)
+            for key, field in fields.items():
+                field.bind(field_name=key, parent=self)
+                self._fields[key] = field
+        return self._fields
+
+    def to_representation(self, instance):
+        ret = OrderedDict()
+        for field_name, field in self.fields.items():
+            attribute = field.get_attribute(instance)
+            attr_data = self.clean_data(field_name, attribute)
+            if attr_data is None:
+                ret[field_name] = None
+            else:
+                ret[field_name] = field.to_representation(attr_data)
+
+        return ret
+
+    def clean_data(self, field_name, value):
+        """
+        处理用户自定义的clean_**函数（**为字段名）
+        """
+        clean_method = 'clean_%s' % field_name
+        if hasattr(self, clean_method):
+            customize_method = getattr(self, clean_method)
+            if hasattr(customize_method, 'set_context'):
+                customize_method.set_context(self)
+
+            value = customize_method(value)
+
+        return value
+
+
+class DeclarativeFieldsMetaclass(type):
+    @classmethod
+    def _get_declared_fields(cls, bases, attrs):
+        fields = [(field_name, attrs.pop(field_name))
+                  for field_name, obj in list(attrs.items())
+                  if isinstance(obj, Field)]
+        fields.sort(key=lambda x: x[1]._creation_counter)
+
+        for base in reversed(bases):
+            if hasattr(base, 'declared_fields'):
+                fields = [
+                    (field_name, obj) for field_name, obj
+                    in base.declared_fields.items()
+                    if field_name not in attrs
+                ] + fields
+
+        return OrderedDict(fields)
+
+    def __new__(mcs, name, bases, attrs):
+        declared_fields = mcs._get_declared_fields(bases, attrs)
+        attrs['declared_fields'] = declared_fields
+        new_class = super(DeclarativeFieldsMetaclass, mcs).__new__(mcs, name, bases, attrs)
+        new_class.base_fields = declared_fields
+        new_class.declared_fields = declared_fields
+
+        return new_class
+
+
+class Serializer(BaseSerializer, metaclass=DeclarativeFieldsMetaclass):
+    pass
+
+
+class ListSerializer(BaseSerializer):
+    child = None
+    many = True
+
+    def __init__(self, *args, **kwargs):
+        self.child = kwargs.pop('child', copy.deepcopy(self.child))
+        assert self.child is not None, '`child` is a required argument.'
+        assert not inspect.isclass(self.child), '`child` has not been instantiated.'
+        super(ListSerializer, self).__init__(*args, **kwargs)
+        self.child.bind(field_name='', parent=self)
+
+    def to_representation(self, data):
+        """
+        List of object instances -> List of dicts of primitive datatypes.
+        """
+        return [self.child.to_representation(item) for item in data]
+
+    @property
+    def data(self):
+        ret = super(ListSerializer, self).data
+        return ret
+
 
 MODEL_SERIALIZER_FIELD_MAPPINGS = {
     models.CharField: CharField,
@@ -40,121 +165,11 @@ MODEL_SERIALIZER_FIELD_MAPPINGS = {
 }
 
 
-class DeclarativeFieldsMetaclass(type):
-    """
-    Metaclass that collects Fields declared on the base classes.
-    """
-    def __new__(mcs, name, bases, attrs):
-        current_fields = []
-        for key, value in list(attrs.items()):
-            if isinstance(value, Field):
-                current_fields.append((key, value))
-                attrs.pop(key)
-        current_fields.sort(key=lambda x: x[1].creation_counter)
-        attrs['declared_fields'] = OrderedDict(current_fields)
-
-        new_class = super(DeclarativeFieldsMetaclass, mcs).__new__(mcs, name, bases, attrs)
-
-        # Walk through the MRO.
-        declared_fields = OrderedDict()
-        for base in reversed(new_class.__mro__):
-            # Collect fields from base class.
-            if hasattr(base, 'declared_fields') and base.declared_fields:
-                declared_fields.update(base.declared_fields)
-
-            # Field shadowing.
-            for attr, value in base.__dict__.items():
-                if value is None and attr in declared_fields:
-                    declared_fields.pop(attr)
-
-        new_class.base_fields = declared_fields
-        new_class.declared_fields = declared_fields
-
-        return new_class
-
-
-class BaseSerializer(object):
-
-    def __init__(self, serializer_data, **kwargs):
-        """
-        :param serializer_data: 待序列化的对象，可以model的对象或字典
-        :param kwargs:
-        """
-        self.serializer_data = serializer_data
-        self._data = None
-        self._fields = None
-
-    def __new__(cls, *args, **kwargs):
-        if kwargs.pop('many', False):
-            return cls.many_init(*args, **kwargs)
-        return super(BaseSerializer, cls).__new__(cls)
-
-    @classmethod
-    def many_init(cls, *args, **kwargs):
-        """
-        @classmethod
-        def many_init(cls, *args, **kwargs):
-            kwargs['child'] = cls()
-            return CustomListSerializer(*args, **kwargs)
-        """
-        child_serializer = cls(*args, **kwargs)
-        list_kwargs = {'child': child_serializer}
-        list_kwargs.update({
-            key: value for key, value in kwargs.items()
-            if key in LIST_SERIALIZER_KWARGS
-        })
-        meta = getattr(cls, 'Meta', None)
-        list_serializer_class = getattr(meta, 'list_serializer_class', ListSerializer)
-        return list_serializer_class(*args, **list_kwargs)
-
-    @property
-    def fields(self):
-        if self._fields is None:
-            self._fields = OrderedDict()
-            fields = copy.deepcopy(self.base_fields)
-            for key, field in fields.items():
-                field.bind(field_name=key, parent=self)
-                self._fields[key] = field
-        return self._fields
-
-    def to_representation(self, serializer_data):
-        """
-        查询对象转为字典结构
-        :param serializer_data: 数据库结果集（模型实例）
-        :return:
-        """
-        ret = OrderedDictStorage()
-        for field_name, field in self.fields.items():
-            attribute = field.get_attribute(serializer_data)
-            if attribute is None:
-                ret[field_name] = None
-            else:
-                ret[field_name] = field.to_representation(attribute)
-
-        return ret
-
-    @property
-    def data(self):
-        if self._data is None:
-            self._data = self.to_representation(self.serializer_data)
-        return self._data
-
-
-class Serializer(BaseSerializer, metaclass=DeclarativeFieldsMetaclass):
-    pass
-
-
 def fields_for_model(model, fields=None, exclude=None):
-    """
-    根据model字段转化为form字段
-    :param model:
-    :param fields:
-    :param exclude:
-    :return:
-    """
     opts = model._meta
     model_fields = opts.fields
     field_dict = OrderedDict()
+
     for field_name, field in model_fields.items():
         if fields is not None and field_name not in fields:
             continue
@@ -180,11 +195,10 @@ class ModelSerializerMetaclass(DeclarativeFieldsMetaclass):
         opts = new_class._meta = ModelSerializerOptions(getattr(new_class, 'Meta', None))
 
         if opts.model:
-            # If a model is defined, extract form fields from it.
             if opts.fields is None and opts.exclude is None:
                 raise ImproperlyConfigured(
-                    "Creating a ModelForm without either the 'fields' attribute "
-                    "or the 'exclude' attribute is prohibited; form %s "
+                    "Creating a ModelSerializer without either the 'fields' attribute "
+                    "or the 'exclude' attribute is prohibited; ModelSerializer %s "
                     "needs updating." % name
                 )
 
@@ -197,15 +211,12 @@ class ModelSerializerMetaclass(DeclarativeFieldsMetaclass):
                 exclude=opts.exclude
             )
 
-            # make sure opts.fields doesn't specify an invalid field
             none_model_fields = [k for k, v in fields.items() if not v]
             missing_fields = (set(none_model_fields) - set(new_class.declared_fields.keys()))
             if missing_fields:
                 message = 'Unknown field(s) (%s) specified for %s'
                 message = message % ', '.join(missing_fields), opts.model.__name__
                 raise FieldError(message)
-            # Override default model fields with any custom declared ones
-            # (plus, include all the other declared fields).
             fields.update(new_class.declared_fields)
         else:
             fields = new_class.declared_fields
@@ -217,30 +228,3 @@ class ModelSerializerMetaclass(DeclarativeFieldsMetaclass):
 
 class ModelSerializer(BaseSerializer, metaclass=ModelSerializerMetaclass):
     pass
-
-
-class ListSerializer(BaseSerializer):
-    child = None
-    many = True
-
-    def __init__(self, *args, **kwargs):
-        self.child = kwargs.pop('child', copy.deepcopy(self.child))
-        assert self.child is not None, '`child` is a required argument.'
-        assert not inspect.isclass(self.child), '`child` has not been instantiated.'
-        super(ListSerializer, self).__init__(*args, **kwargs)
-        # self.child.bind(field_name='', parent=self)
-
-    def to_representation(self, data):
-        """
-        List of object instances -> List of dicts of primitive datatypes.
-        """
-        iterable = data
-
-        return [self.child.to_representation(item) for item in iterable]
-
-    @property
-    def data(self):
-        ret = super(ListSerializer, self).data
-        return ret
-
-

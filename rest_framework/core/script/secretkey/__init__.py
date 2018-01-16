@@ -5,7 +5,7 @@
 import base64
 import string
 
-from rest_framework.core.exceptions import CommandError
+from rest_framework.core.script.exceptions import CommandError
 from rest_framework.core.script.base import Manager
 from rest_framework.utils.functional import get_random_string
 from rest_framework.utils.transcoder import force_bytes

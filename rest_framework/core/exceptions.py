@@ -12,13 +12,6 @@ from rest_framework.utils.transcoder import force_text
 __author__ = 'caowenbin'
 
 
-class CommandError(Exception):
-    """
-    命令异常
-    """
-    pass
-
-
 class TornadoRuntimeWarning(RuntimeWarning):
     pass
 
@@ -199,16 +192,11 @@ class FieldDoesNotExist(Exception):
     pass
 
 
-# class SkipFieldError(Exception):
-#     """
-#     可跳过的字段异常
-#     """
-#     pass
-
-
-# class ObjectDoesNotExist(Exception):
-#     """The requested object does not exist"""
-#     silent_variable_failure = True
+class SkipFieldError(Exception):
+    """
+    可跳过的字段异常
+    """
+    pass
 
 
 class APIErrorDetail(str):
@@ -248,12 +236,10 @@ class APIException(Exception):
 
     def get_error_details(self, detail):
         if isinstance(detail, list):
-            ret = [self.get_error_details(item, self.code) for item in detail]
+            ret = [self.get_error_details(item) for item in detail]
             return ret
         elif isinstance(detail, dict):
-            ret = {key: self.get_error_details(value, self.code)
-                   for key, value in detail.items()
-                   }
+            ret = {key: self.get_error_details(value) for key, value in detail.items()}
             return ret
 
         text = force_text(detail)
@@ -280,20 +266,6 @@ class PaginationError(APIException):
     status_code = status.HTTP_400_BAD_REQUEST
     default_detail = _('Invalid page')
     default_code = 'page_error'
-
-# def translate_validation(error_dict):
-#     """
-#     字典结构的异常信息转化为ErrorDetail格式放在ValidationError中进行返回
-#     :param error_dict:
-#     :return:
-#     """
-#
-#     exc = OrderedDict(
-#         (key, [ErrorDetail(e.message, code=e.code) for e in error_list])
-#         for key, error_list in error_dict.as_data().items()
-#     )
-#
-#     return ValidationError(exc)
 
 
 class IllegalAesKeyError(Exception):

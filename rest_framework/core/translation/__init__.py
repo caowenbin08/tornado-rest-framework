@@ -5,7 +5,7 @@ from rest_framework.conf import settings
 from rest_framework.core.translation.locale import load_gettext_translations
 from rest_framework.utils.lazy import LazyString
 
-LOAD_LANGUAGE = False
+LOAD_LANGUAGE = 0
 
 
 def translation_directories():
@@ -20,12 +20,13 @@ def translation_directories():
 
 def get_translations():
     global LOAD_LANGUAGE
-    if LOAD_LANGUAGE is False or (LOAD_LANGUAGE is True and settings.SETTINGS_MODULE is not None):
+    setting_module = settings.SETTINGS_MODULE
+    if LOAD_LANGUAGE == 0 or (LOAD_LANGUAGE == 1 and setting_module is not None):
         for directory in translation_directories():
             if not os.path.isdir(directory):
                 continue
             load_gettext_translations(directory)
-        LOAD_LANGUAGE = True
+        LOAD_LANGUAGE += 1
     return locale.get(settings.LANGUAGE_CODE).translations
 
 

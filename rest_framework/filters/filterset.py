@@ -3,18 +3,11 @@ import copy
 from collections import OrderedDict
 
 from rest_framework import forms
+from rest_framework.core.exceptions import ImproperlyConfigured
 from rest_framework.filters.utils import get_model_field, try_dbfield
 from rest_framework.utils.constants import LOOKUP_SEP, ALL_FIELDS
 from rest_framework.core.db import models
 from rest_framework.filters import filters
-# from rest_framework.helpers import modelfieldutil
-
-
-def remote_queryset(field):
-    model = field.remote_field.model
-    limit_choices_to = field.get_limit_choices_to()
-
-    return model._default_manager.complex_filter(limit_choices_to)
 
 
 class FilterSetOptions(object):
@@ -93,24 +86,23 @@ class BaseFilterSet(object):
 
         model = queryset.model_class
 
-        self.is_bound = data is not None
         self.data = data or {}
         self.queryset = queryset
         # self.request = request
-        # self.form_prefix = prefix
 
         self.filters = copy.deepcopy(self.base_filters)
+        # model字段对应的过滤处理类的映射
+        self.form_field_filter_map = {}
 
         # propagate the model and filterset to the filters
-        for filter_ in self.filters.values():
-            filter_.model = model
-            filter_.parent = self
+        # for filter_ in self.filters.values():
+        #     filter_.model = model
+        #     filter_.parent = self
 
     def is_valid(self):
         """
         Return True if the underlying form has no errors, or False otherwise.
         """
-        # return self.is_bound and self.form.is_valid()
         return self.form.is_valid()
 
     @property
@@ -126,8 +118,9 @@ class BaseFilterSet(object):
         :param queryset:
         :return:
         """
-        for name, value in self.form.data.items():
-            queryset = self.filters[name].filter(queryset, value)
+        for name, value in self.form.cleaned_data.items():
+            for filter_cls in self.form_field_filter_map[name]:
+                queryset = filter_cls.filter(queryset, value)
         return queryset
 
     @property
@@ -135,8 +128,6 @@ class BaseFilterSet(object):
         if not hasattr(self, '_qs'):
             qs = self.queryset
             qs = self.filter_queryset(qs)
-            # if self.is_bound:
-            #     qs = self.filter_queryset(qs)
             self._qs = qs
         return self._qs
 
@@ -147,9 +138,13 @@ class BaseFilterSet(object):
         This method should be overridden if the form class needs to be
         customized relative to the filterset instance.
         """
-        fields = OrderedDict([(name, filter_.field) for name, filter_ in self.filters.items()])
+        from_fields = OrderedDict()
+        for filter_cls in self.filters.values():
+            field_name = filter_cls.field_name
+            self.form_field_filter_map.setdefault(field_name, []).append(filter_cls)
+            from_fields[field_name] = filter_cls.field
 
-        return type(str('%sForm' % self.__class__.__name__), (self._meta.form,), fields)
+        return type(str('%sForm' % self.__class__.__name__), (self._meta.form,), from_fields)
 
     @property
     def form(self):
@@ -161,8 +156,7 @@ class BaseFilterSet(object):
     @classmethod
     def get_fields(cls):
         """
-        解析应该用于生成筛选器的'fields'参数在filterset中，
-        主要包'Meta.fields'并在不'Meta.exclude'中的字段
+        主要包括'Meta.fields'且不在'Meta.exclude'中的字段
         :return:
         """
         meta_class = getattr(cls, "_meta")
@@ -170,16 +164,19 @@ class BaseFilterSet(object):
         fields = meta_class.fields
         exclude = meta_class.exclude
 
-        assert not (fields is None and exclude is None), (
-            "类（cls_name）必须设置`Meta.fields`或`Meta.exclude`属性值".format(cls_name=cls.__name__)
-        )
+        if fields is None and exclude is None:
+            raise ImproperlyConfigured(
+                "Creating a FilterSet without either the 'fields' attribute "
+                "or the 'exclude' attribute is prohibited; filter %s "
+                "needs updating." % cls.__name__
+            )
 
         # 无字段设置排除意味着所有其他字段.
         if exclude is not None and fields is None:
             fields = ALL_FIELDS
 
         if fields == ALL_FIELDS:
-            fields = modelfieldutil.get_all_model_fields(model)
+            fields = model._meta.sorted_field_names
 
         # 移除`Meta.exclude`中的字段
         exclude = exclude or []
@@ -217,7 +214,7 @@ class BaseFilterSet(object):
         if not model_class:
             return cls.declared_filters.copy()
 
-        filters = OrderedDict()
+        filter_list = OrderedDict()
         fields = cls.get_fields()
         undefined = []
 
@@ -237,11 +234,11 @@ class BaseFilterSet(object):
 
                 # 如果在类上显式声明筛选器，则跳过生成
                 if filter_name in cls.declared_filters:
-                    filters[filter_name] = cls.declared_filters[filter_name]
+                    # filters[filter_name] = cls.declared_filters[filter_name]
                     continue
 
                 if field is not None:
-                    filters[filter_name] = cls.filter_for_field(field, field_name, lookup_expr)
+                    filter_list[filter_name] = cls.filter_for_field(field, field_name, lookup_expr)
 
         # 过滤已声明的过滤器
         undefined = [f for f in undefined if f not in cls.declared_filters]
@@ -253,8 +250,8 @@ class BaseFilterSet(object):
 
         # Add in declared filters. This is necessary since we don't enforce adding
         # declared filters to the 'Meta.fields' option
-        filters.update(cls.declared_filters)
-        return filters
+        filter_list.update(cls.declared_filters)
+        return filter_list
 
     @classmethod
     def filter_for_field(cls, field, field_name, lookup_expr='exact'):

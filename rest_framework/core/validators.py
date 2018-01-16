@@ -9,8 +9,6 @@ from rest_framework.utils.lazy import lazy_re_compile
 from rest_framework.core.translation import gettext as _
 from rest_framework.utils.transcoder import force_text
 
-EMPTY_VALUES = (None, '', [], (), {})
-
 
 class RegexValidator(object):
     regex = ''
@@ -375,7 +373,7 @@ class MaxLengthValidator(BaseValidator):
         return len(x)
 
 
-class DecimalValidator:
+class DecimalValidator(object):
     """
     Validate that the input does not exceed the maximum number of digits
     expected, otherwise raise ValidationError.
@@ -433,7 +431,7 @@ class DecimalValidator:
         )
 
 
-class FileExtensionValidator:
+class FileExtensionValidator(object):
     message = _(
         "File extension '%(extension)s' is not allowed. "
         "Allowed extensions are: '%(allowed_extensions)s'."

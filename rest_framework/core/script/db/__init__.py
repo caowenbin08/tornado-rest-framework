@@ -31,14 +31,16 @@ def init(*args, **kwargs):
     """
     Initialize the table structure
     """
+    table_models = []
     installed_apps = settings.INSTALLED_APPS
     for app in installed_apps:
         module = import_module(app)
-        table_models = get_table_models(module=module)
-        models.create_model_tables(table_models, fail_silently=True)
-        table_name_list = [model.__name__ for model in table_models]
+        table_models.extend(get_table_models(module=module))
+    table_models = set(table_models)
+    models.create_model_tables(table_models, fail_silently=True)
+    table_name_list = [model.__name__ for model in table_models]
 
-        print("Create Table:\n", "\n".join(table_name_list))
+    print("Create Table:\n", "\n".join(table_name_list))
 
 
 @MigrateCommand.command
@@ -47,10 +49,12 @@ def clean(*args, **kwargs):
     Clear all table structure
     """
     installed_apps = settings.INSTALLED_APPS
+    table_models = []
     for app in installed_apps:
         module = import_module(app)
-        table_models = get_table_models(module=module)
-        models.drop_model_tables(table_models, fail_silently=True)
-        table_name_list = [model.__name__ for model in table_models]
+        table_models.extend(get_table_models(module=module))
+    table_models = set(table_models)
+    models.drop_model_tables(table_models, fail_silently=True)
+    table_name_list = [model.__name__ for model in table_models]
 
-        print("Drop Table:\n", "\n".join(table_name_list))
+    print("Drop Table:\n", "\n".join(table_name_list))

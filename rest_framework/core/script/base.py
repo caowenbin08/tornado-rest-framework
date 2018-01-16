@@ -6,8 +6,8 @@ import types
 import logging
 import argparse
 
-from rest_framework.core.exceptions import CommandError
-from rest_framework.core.script.commands import Option, Command, Server, Shell, StartProject
+from rest_framework.core.script.commands import Option, Command, Server, StartProject
+from rest_framework.core.script.exceptions import CommandError
 
 __author__ = 'caowenbin'
 
@@ -74,9 +74,6 @@ class Manager(object):
         self.parent = None
 
     def add_default_commands(self):
-
-        if "shell" not in self._commands:
-            self.add_command("shell", Shell())
 
         if "runserver" not in self._commands:
             self.add_command("runserver", Server())
@@ -251,25 +248,6 @@ class Manager(object):
             return func
 
         return decorate
-
-    def shell(self, func):
-        """
-        Decorator that wraps function in shell command. This is equivalent to::
-
-            def _make_context(app):
-                return dict(app=app)
-
-            manager.add_command("shell", Shell(make_context=_make_context))
-
-        The decorated function should take a single "app" argument, and return
-        a dict.
-
-        For more sophisticated usage use the Shell class.
-        """
-
-        self.add_command('shell', Shell(make_context=func))
-
-        return func
 
     def set_defaults(self):
         if self.with_default_commands is None:

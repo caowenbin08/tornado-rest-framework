@@ -6,6 +6,9 @@ import random
 import hashlib
 from importlib import import_module
 from collections import OrderedDict
+
+import collections
+
 try:
     random = random.SystemRandom()
     using_sysrandom = True
@@ -277,3 +280,31 @@ def get_random_string(length=12, allowed_chars=None):
         random.seed(hashlib.sha256(("%s%s" % (random.getstate(), time.time())).encode('utf-8')).digest())
     return ''.join(random.choice(allowed_chars) for _ in range(length))
 
+
+def get_attribute(instance, attributes):
+    """
+    Similar to Python's built in `getattr(instance, attr)`,
+    but takes a list of nested attributes, instead of a single attribute.
+
+    Also accepts either attribute lookup on objects or dictionary lookups.
+    """
+    for attr in attributes:
+        if instance is None:
+            return None
+
+        if isinstance(instance, collections.Mapping):
+            instance = instance[attr]
+        else:
+            instance = getattr(instance, attr)
+
+        if is_simple_callable(instance):
+            try:
+                instance = instance()
+            except (AttributeError, KeyError) as exc:
+                # If we raised an Attribute or KeyError here it'd get treated
+                # as an omitted field in `Field.get_attribute()`. Instead we
+                # raise a ValueError to ensure the exception is not masked.
+                raise ValueError('Exception raised in callable attribute "{0}"; '
+                                 'original exception was: {1}'.format(attr, exc))
+
+    return instance

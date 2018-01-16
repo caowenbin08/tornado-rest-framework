@@ -1,10 +1,6 @@
 # -*- coding: utf-8 -*-
 from rest_framework.forms import fields
 from rest_framework.utils.constants import QUERY_TERMS, EMPTY_VALUES
-# from .fields import (
-#     Lookup,
-#     LookupTypeField,
-# )
 from rest_framework.filters.fields import Lookup
 
 __all__ = [
@@ -66,10 +62,19 @@ class Filter(object):
     creation_counter = 0
     field_class = fields.Field
 
-    def __init__(self, field_name=None, lookup_expr='exact', method=None, distinct=False, exclude=False, **kwargs):
+    def __init__(self, field_name=None, lookup_expr='exact', method=None, distinct=False,
+                 exclude=False, **kwargs):
+        """
+
+        :param field_name: 对应model的字段名
+        :param lookup_expr:
+        :param method:
+        :param distinct:
+        :param exclude:
+        :param kwargs:
+        """
         self.field_name = field_name
         self.lookup_expr = lookup_expr
-        # self.label = label
         self._method = None
         self.method = method
         self.distinct = distinct
@@ -77,6 +82,7 @@ class Filter(object):
 
         self.extra = kwargs
         self.extra.setdefault('required', False)
+        self.extra.setdefault('null', True)
 
         self.creation_counter = Filter.creation_counter
         Filter.creation_counter += 1
@@ -104,32 +110,7 @@ class Filter(object):
     def field(self):
         if not hasattr(self, '_field'):
             field_kwargs = self.extra.copy()
-
-            if self.lookup_expr is None or isinstance(self.lookup_expr, (list, tuple)):
-
-                lookup = []
-
-                for x in LOOKUP_TYPES:
-                    if isinstance(x, (list, tuple)) and len(x) == 2:
-                        choice = (x[0], x[1])
-                    else:
-                        choice = (x, x)
-
-                    if self.lookup_expr is None:
-                        lookup.append(choice)
-                    else:
-                        if isinstance(x, (list, tuple)) and len(x) == 2:
-                            if x[0] in self.lookup_expr:
-                                lookup.append(choice)
-                        else:
-                            if x in self.lookup_expr:
-                                lookup.append(choice)
-
-                self._field = LookupTypeField(
-                    self.field_class(**field_kwargs), lookup,
-                    required=field_kwargs['required'])
-            else:
-                setattr(self, "_field", self.field_class(**field_kwargs))
+            self._field = self.field_class(**field_kwargs)
 
         return self._field
 

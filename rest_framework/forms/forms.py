@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
+import asyncio
 import copy
 from collections import OrderedDict
 from rest_framework.conf import settings
-from rest_framework.core.exceptions import ValidationError, ErrorDict, ErrorList
+from rest_framework.core.exceptions import ValidationError, ErrorDict, ErrorList, SkipFieldError
 from rest_framework.forms.fields import Field, FileField
+from rest_framework.lib import aioawait
 from rest_framework.utils.cached_property import cached_property
+from rest_framework.utils.functional import set_value
 
 __author__ = 'caowenbin'
 
@@ -47,6 +50,14 @@ class DeclarativeFieldsMetaclass(type):
 class BaseForm(object):
 
     def __init__(self, request=None, data=None, files=None, initial=None, empty_permitted=False):
+        """
+
+        :param request:
+        :param data: 表单选项值
+        :param files: 表单上传文件
+        :param initial: model值
+        :param empty_permitted: 是否允许为空提交
+        """
         self.request = request
         self.is_bound = data is not None or files is not None
         self.data = data or {}
@@ -81,6 +92,7 @@ class BaseForm(object):
             )
         if name not in self._bound_fields_cache:
             self._bound_fields_cache[name] = field.get_bound_field(self, name)
+
         return self._bound_fields_cache[name]
 
     @property
@@ -88,15 +100,17 @@ class BaseForm(object):
         if self._fields is None:
             self._fields = OrderedDict()
             fields = copy.deepcopy(self.base_fields)
+
             for key, field in fields.items():
                 field.bind(field_name=key, parent=self)
                 self._fields[key] = field
+
         return self._fields
 
     @property
     def cleaned_data(self):
         if self._cleaned_data is None:
-            self.full_clean()
+            aioawait.await(self.full_clean())
         return self._cleaned_data
 
     @property
@@ -105,7 +119,7 @@ class BaseForm(object):
         Returns an ErrorDict for the data provided for the form
         """
         if self._errors is None:
-            self.full_clean()
+            aioawait.await(self.full_clean())
 
         return self._errors
 
@@ -141,22 +155,13 @@ class BaseForm(object):
             if field in self.cleaned_data:
                 del self.cleaned_data[field]
 
-    def has_error(self, field, code=None):
-        if code is None:
-            return field in self.errors
-        if field in self.errors:
-            for error in self.errors.as_data()[field]:
-                if error.code == code:
-                    return True
-        return False
-
-    def full_clean(self):
+    async def full_clean(self):
         """
         Cleans all of self.data and populates self._errors and
         self._cleaned_data.
         """
         self._errors = ErrorDict()
-        if not self.is_bound:  # Stop further processing.
+        if not self.is_bound:
             return
 
         self._cleaned_data = {}
@@ -165,21 +170,20 @@ class BaseForm(object):
         if self.empty_permitted and not self.has_changed():
             return
         try:
-            self._clean_fields()
-            self._clean_form()
-            self._clean_validators()
+            await self._clean_fields()
+            await self._clean_form()
+            await self._clean_validators()
         except ValidationError as e:
             self.add_error(None, e)
 
-    def _clean_fields(self):
+    async def _clean_fields(self):
         field_errors = {}
         has_error = False
         for name, field in self.fields.items():
             if field.disabled:
-                continue
-                # value = self.get_initial_for_field(field, name)
-            # else:
-            value = field.value_from_datadict(self.data, self.files)
+                value = self.get_initial_for_field(field, name)
+            else:
+                value = field.value_from_datadict(self.data, self.files)
 
             try:
                 if isinstance(field, FileField):
@@ -188,21 +192,23 @@ class BaseForm(object):
                 else:
                     value = field.clean(value)
 
-                self._cleaned_data[name] = value
+                set_value(self._cleaned_data, field.source_attrs, value)
 
-                if hasattr(self, 'clean_%s' % name):
-                    value = getattr(self, 'clean_%s' % name)()
-                    self._cleaned_data[name] = value
             except ValidationError as e:
                 field_errors[name] = e
                 has_error = True
+            except SkipFieldError:
+                continue
 
         if has_error:
             raise ValidationError(field_errors)
 
-    def _clean_form(self):
+    async def _clean_form(self):
         try:
+
             cleaned_data = self.clean()
+            if asyncio.iscoroutine(cleaned_data):
+                cleaned_data = await cleaned_data
         except ValidationError as e:
             self.add_error(None, e)
         else:
@@ -219,14 +225,14 @@ class BaseForm(object):
         validators = getattr(meta, 'validators', None)
         return validators[:] if validators is not None else []
 
-    def _clean_validators(self):
+    async def _clean_validators(self):
         for validator in self.validators:
             if hasattr(validator, 'set_context'):
                 validator.set_context(self)
 
             validator(self.cleaned_data)
 
-    def clean(self):
+    async def clean(self):
         """
         Hook for doing any extra form-wide cleaning after Field.clean() has been
         called on every field. Any ValidationError raised by this method will
@@ -256,7 +262,7 @@ class BaseForm(object):
         Return initial data for field on form. Use initial data from the form
         or the field, in that order. Evaluate callable values.
         """
-        value = self.initial.get(field_name, field.default)
+        value = self.initial.get(field_name, field.initial)
         if callable(value):
             value = value()
         return value

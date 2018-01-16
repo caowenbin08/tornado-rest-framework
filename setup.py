@@ -1,18 +1,23 @@
 # -*- coding: utf-8 -*-
-from os.path import dirname, join
+from os.path import dirname, join, abspath
 from setuptools import setup, find_packages
 __author__ = 'caowenbin'
 
-with open(join(dirname(__file__), 'VERSION'), 'rb') as f:
+HERE = abspath(dirname(__file__))
+
+with open(join(HERE, 'VERSION'), 'rb') as f:
     version = f.read().decode('ascii').strip()
+
+with open(join(HERE, "requirements.txt"), encoding='utf-8') as f:
+    REQUIRES = f.readlines()
 
 
 setup(
-    name='tornado-rest-framework',
+    name='rest_framework',
     version=version,
     url='',
     description='Tornado Rest Framework',
-    author='caowenbin',
+    author='binhua',
     author_email='binhua18@126.com',
     license='BSD',
     packages=find_packages(exclude=('admin', 'admin.*', 'rest_framework.test', 'rest_framework.test.*')),
@@ -23,9 +28,5 @@ setup(
     entry_points={'console_scripts': [
         'tornado-admin = rest_framework.core.script:execute_from_command_line',
     ]},
-    install_requires=[
-        'tornado>=4.5.2',
-        'peewee>=2.10.1',
-        'PyMySQL>=0.7.11',
-    ],
+    install_requires=REQUIRES
 )
