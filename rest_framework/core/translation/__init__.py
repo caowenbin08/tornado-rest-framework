@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 import os
+from gettext import NullTranslations
+
 import rest_framework
 from rest_framework.conf import settings
 from rest_framework.core.translation.locale import load_gettext_translations
@@ -40,7 +42,7 @@ def gettext(string, **variables):
     :return:
     """
     t = get_translations()
-    if t is None:
+    if t is None or isinstance(t, NullTranslations):
         return string if not variables else string % variables
     s = t.ugettext(string)
     return s if not variables else s % variables

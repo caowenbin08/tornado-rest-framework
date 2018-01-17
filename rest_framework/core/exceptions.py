@@ -199,15 +199,6 @@ class SkipFieldError(Exception):
     pass
 
 
-class APIErrorDetail(str):
-    code = None
-
-    def __new__(cls, text_value, code=None):
-        self = super(APIErrorDetail, cls).__new__(cls, text_value)
-        self.code = code
-        return self
-
-
 class ErrorDetail(str):
     code = None
 
