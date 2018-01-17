@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import inspect
 import re
 import uuid
 import copy
@@ -24,11 +25,11 @@ from rest_framework.utils.constants import EMPTY_VALUES, FILE_INPUT_CONTRADICTIO
 __author__ = 'caowenbin'
 
 __all__ = (
-    'Field', 'CharField', 'IntegerField',
+    'Field', 'CharField', 'IntegerField', 'FloatField', 'DecimalField',
     'DateField', 'TimeField', 'DateTimeField',
     'EmailField', 'FileField', 'ImageField', 'URLField',
-    'BooleanField', 'NullBooleanField', 'ChoiceField', 'MultipleChoiceField',
-    'MultiValueField', "ListField", 'FloatField', 'DecimalField',
+    'BooleanField', 'NullBooleanField',
+    'ChoiceField', 'MultipleChoiceField', 'MultiValueField', "ListField", 'DictField',
     'IPAddressField', 'UUIDField', 'PasswordField', 'IdentifierField',
     "BoundField"
 )
@@ -49,7 +50,7 @@ class Field(object):
     creation_counter = 0
     initial = None
 
-    def __init__(self, required=True, verbose_name=None, default=empty, initial=empty, source=None,
+    def __init__(self, required=None, verbose_name=None, default=empty, initial=empty, source=None,
                  error_messages=None, null=False, validators=(), disabled=False):
         """
 
@@ -144,45 +145,27 @@ class Field(object):
             try:
                 v(value)
             except ValidationError as e:
-                if hasattr(e, 'code') and e.code in self.error_messages:
-                    e.message = self.error_messages[e.code]
+                # if hasattr(e, 'code') and e.code in self.error_messages:
+                #     e.message = self.error_messages[e.code]
                 raise ValidationError(e)
 
-    def get_customize_data(self, value):
-        """
-        1、当value为empty时,则处理对应的default，反之不处理default
-        2、处理用户自定义的clean_**函数（**为表单字段名）
-        :param value:
-        :return:
-        """
-        if value is empty and not self.parent.empty_permitted:
-            if callable(self.default):
-                if hasattr(self.default, 'set_context'):
-                    self.default.set_context(self)
-                value = self.default()
-            else:
-                value = self.default
+    def get_default(self):
+        if callable(self.default):
+            if hasattr(self.default, 'set_context'):
+                self.default.set_context(self)
+            return self.default()
+        return self.default
 
-        if hasattr(self, 'clean_%s' % self.field_name):
-            customize_method = getattr(self, 'clean_%s' % self.field_name)
-            if hasattr(customize_method, 'set_context'):
-                customize_method.set_context(self)
-
-            value = customize_method(value)
-
-        return value
-
-    def clean(self, value):
+    def clean(self, value=empty):
         """
         Validates the given value and returns its "cleaned" value as an
         appropriate Python object.
 
         Raises ValidationError for any errors.
         """
-        value = self.get_customize_data(value)
-        if value is empty and self.parent.empty_permitted:
-            raise SkipFieldError()
         self.validate(value)
+        if value is empty:
+            return self.get_default()
         value = self.to_python(value)
         self.run_validators(value)
         return value
@@ -779,6 +762,7 @@ class ListField(Field):
 
     def __init__(self, child=None, *args, **kwargs):
         self.child = copy.deepcopy(self.child) if child is None else child
+        assert not inspect.isclass(self.child), '`child` has not been instantiated.'
         self.allow_empty = kwargs.pop('allow_empty', True)
         self.max_length = kwargs.pop('max_length', None)
         self.min_length = kwargs.pop('min_length', None)
@@ -807,11 +791,46 @@ class ListField(Field):
             )
 
         if not self.allow_empty and len(value) == 0:
-            raise ValidationError(
-                self.error_messages['empty'],
-                code='empty'
-            )
+            raise ValidationError(self.error_messages['empty'], code='empty')
         return [self.child.clean(item) for item in value]
+
+
+class DictField(Field):
+    """
+    字典字段
+    """
+    child = _UnvalidatedField()
+    initial = {}
+    default_error_messages = {
+        'not_a_dict': _('Expected a dictionary of items but got type "%(input_type)s"')
+    }
+
+    def __init__(self, *args, **kwargs):
+        self.child = kwargs.pop('child', copy.deepcopy(self.child))
+        assert not inspect.isclass(self.child), '`child` has not been instantiated.'
+        self.child.source = None
+        super(DictField, self).__init__(*args, **kwargs)
+        self.child.bind(field_name='', parent=self)
+
+    # def validate(self, value):
+    #     pass
+
+    # def get_value(self, dictionary):
+    #     # We override the default field access in order to support
+    #     # dictionaries in HTML forms.
+    #     if html.is_html_input(dictionary):
+    #         return html.parse_html_dict(dictionary, prefix=self.field_name)
+    #     return dictionary.get(self.field_name, empty)
+
+    def clean(self, data):
+        if not isinstance(data, dict):
+            raise ValidationError(
+                self.error_messages['not_a_dict'],
+                code='not_a_dict',
+                params=dict(input_type=type(data).__name__)
+            )
+
+        return {str(key): self.child.clean(value) for key, value in data.items()}
 
 
 class MultiValueField(Field):

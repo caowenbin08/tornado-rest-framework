@@ -37,7 +37,6 @@ def init(*args, **kwargs):
         module = import_module(app)
         table_models.extend(get_table_models(module=module))
     table_models = set(table_models)
-    print("----table_models---", table_models)
     models.create_model_tables(table_models, fail_silently=True)
     table_name_list = [model.__name__ for model in table_models]
 

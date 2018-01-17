@@ -283,7 +283,6 @@ class DictField(Field):
 
     def __init__(self, *args, **kwargs):
         self.child = kwargs.pop('child', copy.deepcopy(self.child))
-
         assert not inspect.isclass(self.child), '`child` has not been instantiated.'
         self.child.source = None
         super(DictField, self).__init__(*args, **kwargs)

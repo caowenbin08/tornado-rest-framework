@@ -8,6 +8,7 @@ from rest_framework.forms.fields import Field, FileField
 from rest_framework.lib import aioawait
 from rest_framework.utils.cached_property import cached_property
 from rest_framework.utils.functional import set_value
+from rest_framework.utils.constants import empty
 
 __author__ = 'caowenbin'
 
@@ -185,12 +186,23 @@ class BaseForm(object):
             else:
                 value = field.value_from_datadict(self.data, self.files)
 
+            customize_method = getattr(self, 'clean_%s' % name, None)
+
             try:
                 if isinstance(field, FileField):
                     initial = self.get_initial_for_field(field, name)
                     value = field.clean(value, initial)
                 else:
                     value = field.clean(value)
+
+                if customize_method is not None:
+                    if hasattr(customize_method, 'set_context'):
+                        customize_method.set_context(self)
+
+                    value = customize_method(None if value is empty else value)
+
+                if value is empty:
+                    continue
 
                 set_value(self._cleaned_data, field.source_attrs, value)
 

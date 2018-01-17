@@ -43,7 +43,6 @@ class JSONParser(BaseParser):
     media_type = 'application/json'
 
     def parse(self, request):
-
         try:
             data = json_decode(request.body) if request.body else {}
             return data

@@ -8,6 +8,7 @@ from rest_framework.filters.utils import get_model_field, try_dbfield
 from rest_framework.utils.constants import LOOKUP_SEP, ALL_FIELDS
 from rest_framework.core.db import models
 from rest_framework.filters import filters
+from rest_framework.utils.constants import EMPTY_VALUES
 
 
 class FilterSetOptions(object):
@@ -119,6 +120,9 @@ class BaseFilterSet(object):
         :return:
         """
         for name, value in self.form.cleaned_data.items():
+            if value in EMPTY_VALUES:
+                continue
+
             for filter_cls in self.form_field_filter_map[name]:
                 queryset = filter_cls.filter(queryset, value)
         return queryset

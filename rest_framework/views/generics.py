@@ -68,7 +68,6 @@ class BaseAPIHandler(RequestHandler, BabelTranslatorMixin):
     def select_parser(self):
         parsers = get_parsers()
         content_type = self.request.headers.get("Content-Type", "")
-        print("========content_type===", content_type)
         for parser in parsers:
             if parser.media_type == content_type:
                 return parser
