@@ -30,8 +30,10 @@ __all__ = [
     'GenericAPIHandler',
     'ListAPIHandler',
     'CreateAPIHandler',
+    'RetrieveAPIHandler',
     'RetrieveUpdateAPIHandler',
-    'DestroyAPIHandler'
+    'DestroyAPIHandler',
+    'UpdateAPIHandler'
 ]
 
 view_log = logging.getLogger("rest_framework.views")

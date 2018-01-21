@@ -322,33 +322,63 @@ class Server(Command):
 
             Option('-d', '--debug',
                    action='store_true',
-                   dest='use_debugger',
                    help="Whether to start the debug mode",
                    default=None),
+
+            Option('-s', '--settings',
+                   type=str,
+                   dest="settings",
+                   help=(
+                       'The Python path to a settings module, e.g. '
+                       '"myproject.settings.main". If this isn\'t provided, the '
+                       'TORNADO_REST_SETTINGS_MODULE environment variable will be used.'
+                   )),
+
+            Option("-r", "--rules", dest="rules", type=str,
+                   help='Specifies mappings between URLs and handlers'),
+
         )
 
         return options
 
-    def run(self, app, port, use_debugger):
-        """
-        :param app: 应用对象，目前为None
-        :param port:
-        :param use_debugger:
-        :return:
-        """
-        urlconf_module = settings.ROOT_URLCONF
-
+    def url_patterns(self, rules):
+        urlconf_module = settings.ROOT_URLCONF if rules is None else rules
         if isinstance(urlconf_module, str):
             urlconf_module = import_module(urlconf_module)
 
         urlpatterns = getattr(urlconf_module, 'urlpatterns', [])
+
+        url_specs = []
+        for url_spec in urlpatterns:
+            if isinstance(url_spec, list):
+                url_specs.extend(url_spec)
+            else:
+                url_specs.append(url_spec)
+
+        return url_specs
+
+    def run(self, app, port, **kwargs):
+        """
+        :param app: 应用对象，目前为None
+        :param port:
+        :return:
+        """
+        settings_path = kwargs.get("settings", None)
+        if settings_path:
+            os.environ['TORNADO_REST_SETTINGS_MODULE'] = settings_path
+
+        rules = kwargs.get("rules", None)
+        urlpatterns = self.url_patterns(rules)
+        print("urlpatterns:", urlpatterns)
         app_settings = dict(
             gzip=True,
             debug=settings.DEBUG,
             xsrf_cookies=settings.XSRF_COOKIES
         )
-        if use_debugger is not None:
-            app_settings["debug"] = use_debugger
+
+        debug = kwargs.pop("debug", None)
+        if debug is not None:
+            app_settings["debug"] = debug
 
         AsyncIOMainLoop().install()
         loop = asyncio.get_event_loop()

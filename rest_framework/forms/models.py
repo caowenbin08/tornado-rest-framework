@@ -10,7 +10,7 @@ from rest_framework.forms.fields import (
 )
 from rest_framework.forms.validators import UniqueTogetherValidator, UniqueValidator
 from rest_framework.forms.forms import DeclarativeFieldsMetaclass, BaseForm
-from rest_framework.utils.constants import ALL_FIELDS
+from rest_framework.utils.constants import ALL_FIELDS, EMPTY_VALUES
 
 __author__ = 'caowenbin'
 
@@ -36,12 +36,16 @@ MODEL_FORM_FIELD_MAPPINGS = {
 }
 FORM_CHOICE_FIELD = ChoiceField
 
+POP_KWARGS = ('required', 'default', 'null', 'min_length', 'max_length', 'min_value', 'max_value',
+              'validators')
+
 
 def get_form_field(model_field, **kwargs):
     defaults = {
-        'required': not (model_field.default is not None or model_field.null),
+        'required': not (model_field.default not in EMPTY_VALUES or model_field.null),
         'default': model_field.default,
         'null': model_field.null,
+        "verbose_name": model_field.verbose_name,
         "validators": list(kwargs.pop("validators", []))
     }
 
@@ -71,6 +75,14 @@ def get_form_field(model_field, **kwargs):
         form_class = FORM_CHOICE_FIELD
 
     defaults.update(kwargs)
+
+    if defaults.get("disabled", False):
+        for attr in POP_KWARGS:
+            defaults.pop(attr, None)
+
+    if defaults.get("required") is True:
+        defaults.pop("default", None)
+
     if form_class is None:
         form_class = MODEL_FORM_FIELD_MAPPINGS.get(model_field.__class__, CharField)
 
@@ -127,7 +139,7 @@ class ModelFormMetaclass(DeclarativeFieldsMetaclass):
                     "needs updating." % name
                 )
 
-            if form_opts.fields == ALL_FIELDS:
+            if isinstance(form_opts.fields, str) and form_opts.fields.lower() == ALL_FIELDS:
                 form_opts.fields = None
 
             model_fields = fields_for_model(
@@ -242,7 +254,7 @@ class BaseModelForm(BaseForm):
             self.instance = self.update(validated_data)
             assert self.instance is not None, '`update()` did not return an object instance.'
 
-        else:
+        elif self.instance is None and validated_data:
             self.instance = self.create(validated_data)
             assert self.instance is not None, '`create()` did not return an object instance.'
 

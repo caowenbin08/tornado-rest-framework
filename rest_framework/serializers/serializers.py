@@ -177,7 +177,7 @@ def fields_for_model(model, fields=None, exclude=None):
             continue
 
         form_class = MODEL_SERIALIZER_FIELD_MAPPINGS.get(field.__class__, CharField)
-        field_dict[field_name] = form_class()
+        field_dict[field_name] = form_class(verbose_name=field.verbose_name)
     return field_dict
 
 
@@ -202,7 +202,7 @@ class ModelSerializerMetaclass(DeclarativeFieldsMetaclass):
                     "needs updating." % name
                 )
 
-            if opts.fields == ALL_FIELDS:
+            if isinstance(opts.fields, str) and opts.fields.lower() == ALL_FIELDS:
                 opts.fields = None
 
             fields = fields_for_model(

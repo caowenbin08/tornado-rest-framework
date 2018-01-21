@@ -29,7 +29,8 @@ def get_translations():
                 continue
             load_gettext_translations(directory)
         LOAD_LANGUAGE += 1
-    return locale.get(settings.LANGUAGE_CODE).translations
+    t = locale.get(settings.LANGUAGE_CODE).translations
+    return None if isinstance(t, NullTranslations) else t
 
 
 def gettext(string, **variables):
@@ -42,7 +43,7 @@ def gettext(string, **variables):
     :return:
     """
     t = get_translations()
-    if t is None or isinstance(t, NullTranslations):
+    if t is None:
         return string if not variables else string % variables
     s = t.ugettext(string)
     return s if not variables else s % variables

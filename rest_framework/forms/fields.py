@@ -131,7 +131,7 @@ class Field(object):
         if value is empty and self.required:
             raise ValidationError(self.error_messages["required"], code="required")
 
-        if value in self.empty_values and not self.null:
+        if self.disabled is False and value in self.empty_values and not self.null:
             raise ValidationError(self.error_messages["null"], code="null")
 
     def run_validators(self, value):

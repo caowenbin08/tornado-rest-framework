@@ -196,10 +196,9 @@ class BaseForm(object):
                     value = field.clean(value)
 
                 if customize_method is not None:
-                    if hasattr(customize_method, 'set_context'):
-                        customize_method.set_context(self)
-
                     value = customize_method(None if value is empty else value)
+                    if asyncio.iscoroutine(value):
+                        value = await value
 
                 if value is empty:
                     continue
