@@ -424,6 +424,10 @@ class RelatedField(Field):
                 value = instance.serializable_value(self.source_attrs[-1])
                 if isinstance(value, SelectQuery):
                     value = value.get().get_id()
+
+                if hasattr(value, "get_id"):
+                    value = value.get_id()
+
                 return PKOnlyObject(pk=value)
             except AttributeError:
                 pass
