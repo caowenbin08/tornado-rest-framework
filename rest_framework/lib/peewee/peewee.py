@@ -5057,6 +5057,13 @@ class Model(with_metaclass(BaseModel)):
                     model.delete().where(query).execute()
         return self.delete().where(self._pk_expr()).execute()
 
+    def serializable_value(self, field_name):
+        try:
+            field = self._meta.fields[field_name]
+        except KeyError:
+            return getattr(self, field_name)
+        return getattr(self, field.name)
+
     def __hash__(self):
         return hash((self.__class__, self._get_pk_value()))
 
@@ -5068,6 +5075,7 @@ class Model(with_metaclass(BaseModel)):
 
     def __ne__(self, other):
         return not self == other
+
 
 
 def prefetch_add_subquery(sq, subqueries):

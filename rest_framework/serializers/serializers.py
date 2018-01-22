@@ -6,8 +6,8 @@ from rest_framework.core.db import models
 from rest_framework.core.exceptions import ImproperlyConfigured, FieldError
 from rest_framework.serializers.fields import (
     Field, CharField, DateTimeField, IntegerField, BooleanField, FloatField, DateField,
-    TimeField, UUIDField
-)
+    TimeField, UUIDField,
+    PKOnlyObject)
 from rest_framework.utils.constants import ALL_FIELDS
 
 __author__ = 'caowenbin'
@@ -67,11 +67,10 @@ class BaseSerializer(Field):
         ret = OrderedDict()
         for field_name, field in self.fields.items():
             attribute = field.get_attribute(instance)
-            attr_data = self.clean_data(field_name, attribute)
-            if attr_data is None:
-                ret[field_name] = None
-            else:
-                ret[field_name] = field.to_representation(attr_data)
+            check_for_none = attribute.pk if isinstance(attribute, PKOnlyObject) else attribute
+            attr_data = None if check_for_none is None else field.to_representation(attribute)
+            attr_data = self.clean_data(field_name, attr_data)
+            ret[field_name] = attr_data
 
         return ret
 
@@ -82,9 +81,6 @@ class BaseSerializer(Field):
         clean_method = 'clean_%s' % field_name
         if hasattr(self, clean_method):
             customize_method = getattr(self, clean_method)
-            if hasattr(customize_method, 'set_context'):
-                customize_method.set_context(self)
-
             value = customize_method(value)
 
         return value

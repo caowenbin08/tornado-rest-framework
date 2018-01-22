@@ -2,15 +2,18 @@
 import copy
 import inspect
 import json
+
+from rest_framework.lib.peewee import SelectQuery
 from rest_framework.utils.constants import empty, REGEX_TYPE
-from rest_framework.utils.functional import get_attribute
+from rest_framework.utils.functional import get_attribute, is_simple_callable
 
 __author__ = 'caowenbin'
 
 __all__ = [
     'Field', 'BooleanField', 'NullBooleanField', 'CharField', 'UUIDField',
     'IntegerField', 'FloatField', 'DateTimeField', 'DateField', 'TimeField',
-    'ListField', 'DictField', 'JSONField', 'SerializerMethodField'
+    'ListField', 'DictField', 'JSONField', 'SerializerMethodField',
+    'PrimaryKeyRelatedField', 'SlugRelatedField'
 ]
 
 
@@ -355,3 +358,125 @@ class SerializerMethodField(Field):
         method = getattr(self.parent, self.method_name)
         return method(value)
 
+
+MANY_RELATION_KWARGS = ('verbose_name', 'source')
+
+
+class PKOnlyObject(object):
+    """
+    This is a mock object, used for when we only need the pk of the object
+    instance, but still want to return an object with a .pk attribute,
+    in order to keep the same interface as a regular model instance.
+    """
+    def __init__(self, pk):
+        self.pk = pk
+
+    def get_id(self):
+        return self.pk
+
+    def __str__(self):
+        return "%s" % self.pk
+
+
+class RelatedField(Field):
+
+    def __init__(self, **kwargs):
+        kwargs.pop('many', None)
+        super(RelatedField, self).__init__(**kwargs)
+
+    def __new__(cls, *args, **kwargs):
+        # We override this method in order to automagically create
+        # `ManyRelatedField` classes instead when `many=True` is set.
+        if kwargs.pop('many', False):
+            return cls.many_init(*args, **kwargs)
+        return super(RelatedField, cls).__new__(cls, *args, **kwargs)
+
+    @classmethod
+    def many_init(cls, *args, **kwargs):
+        """
+        This method handles creating a parent `ManyRelatedField` instance
+        when the `many=True` keyword argument is passed.
+
+        Typically you won't need to override this method.
+
+        Note that we're over-cautious in passing most arguments to both parent
+        and child classes in order to try to cover the general case. If you're
+        overriding this method you'll probably want something much simpler, eg:
+
+        @classmethod
+        def many_init(cls, *args, **kwargs):
+            kwargs['child'] = cls()
+            return CustomManyRelatedField(*args, **kwargs)
+        """
+        list_kwargs = {'child_relation': cls(*args, **kwargs)}
+        for key in kwargs.keys():
+            if key in MANY_RELATION_KWARGS:
+                list_kwargs[key] = kwargs[key]
+        return ManyRelatedField(**list_kwargs)
+
+    def use_pk_only_optimization(self):
+        return False
+
+    def get_attribute(self, instance):
+        if self.use_pk_only_optimization() and self.source_attrs:
+            try:
+                instance = get_attribute(instance, self.source_attrs[:-1])
+                value = instance.serializable_value(self.source_attrs[-1])
+                if isinstance(value, SelectQuery):
+                    value = value.get().get_id()
+                return PKOnlyObject(pk=value)
+            except AttributeError:
+                pass
+
+        # Standard case, return the object instance.
+        return get_attribute(instance, self.source_attrs)
+
+
+class PrimaryKeyRelatedField(RelatedField):
+    def __init__(self, **kwargs):
+        self.pk_field = kwargs.pop('pk_field', None)
+        super(PrimaryKeyRelatedField, self).__init__(**kwargs)
+
+    def use_pk_only_optimization(self):
+        return True
+
+    def to_representation(self, value):
+        pk_value = value.get_id()
+
+        if self.pk_field is not None:
+            return self.pk_field.to_representation(pk_value)
+        return pk_value
+
+
+class SlugRelatedField(RelatedField):
+
+    def __init__(self, slug_field, **kwargs):
+        self.slug_field = slug_field
+        super(SlugRelatedField, self).__init__(**kwargs)
+
+    def to_representation(self, obj):
+        return getattr(obj, self.slug_field)
+
+
+class ManyRelatedField(Field):
+    initial = []
+
+    def __init__(self, child_relation=None, *args, **kwargs):
+        self.child_relation = child_relation
+
+        assert child_relation is not None, '`child_relation` is a required argument.'
+        super(ManyRelatedField, self).__init__(*args, **kwargs)
+        self.child_relation.bind(field_name='', parent=self)
+
+    def get_attribute(self, instance):
+        if hasattr(instance, 'get_id') and instance.get_id() is None:
+            return []
+
+        relationship = get_attribute(instance, self.source_attrs)
+        return relationship.select() if hasattr(relationship, 'select') else relationship
+
+    def to_representation(self, iterable):
+        return [
+            self.child_relation.to_representation(value)
+            for value in iterable
+        ]
