@@ -7,7 +7,7 @@ from rest_framework.core.exceptions import ImproperlyConfigured, FieldError
 from rest_framework.serializers.fields import (
     Field, CharField, DateTimeField, IntegerField, BooleanField, FloatField, DateField,
     TimeField, UUIDField,
-    PKOnlyObject)
+    PKOnlyObject, PrimaryKeyRelatedField)
 from rest_framework.utils.constants import ALL_FIELDS
 
 __author__ = 'caowenbin'
@@ -153,7 +153,7 @@ MODEL_SERIALIZER_FIELD_MAPPINGS = {
     models.BigIntegerField: IntegerField,
     models.SmallIntegerField: IntegerField,
     models.PrimaryKeyField: IntegerField,
-    models.ForeignKeyField: IntegerField,
+    models.ForeignKeyField: PrimaryKeyRelatedField,
     models.DateField: DateField,
     models.TimeField: TimeField,
     models.TimestampField: DateTimeField,
