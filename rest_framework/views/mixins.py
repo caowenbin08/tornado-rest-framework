@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
+import asyncio
 from rest_framework import serializers
 from rest_framework.core.translation import locale, make_lazy_gettext
 from rest_framework.utils import status
-from rest_framework.core.response import Response
 
 __author__ = 'caowenbin'
 
@@ -19,19 +19,19 @@ class CreateModelMixin(object):
     """
     创建
     """
-    def perform_create(self, form):
+    async def perform_create(self, form):
         """
         :param form:
         :return:
         """
-        instance = form.save()
+        instance = await form.save()
         return instance
 
-    def create(self, *args, **kwargs):
+    async def create(self, *args, **kwargs):
         form = self.get_form()
 
-        if form.is_valid():
-            instance = self.perform_create(form)
+        if await form.is_valid():
+            instance = await self.perform_create(form)
 
             if self.need_obj_serializer:
                 self.create_serializer(form)
@@ -43,7 +43,7 @@ class CreateModelMixin(object):
 
             return self.write_response(data=result, status_code=status.HTTP_201_CREATED)
 
-        return self.write_response(data=form.errors, status_code=status.HTTP_400_BAD_REQUEST)
+        return self.write_response(data=await form.errors, status_code=status.HTTP_400_BAD_REQUEST)
 
     def create_serializer(self, form):
         """
@@ -66,8 +66,8 @@ class ListModelMixin(object):
     """
     分页查询列表
     """
-    def list(self, *args, **kwargs):
-        queryset = self.filter_queryset(self.get_queryset())
+    async def list(self, *args, **kwargs):
+        queryset = await self.filter_queryset(self.get_queryset())
 
         page = self.paginate_queryset(queryset)
         if page is not None:
@@ -83,8 +83,11 @@ class RetrieveModelMixin(object):
     """
     查看详情
     """
-    def retrieve(self, *args, **kwargs):
+    async def retrieve(self, *args, **kwargs):
         instance = self.get_object()
+        if asyncio.iscoroutine(instance):
+            instance = await instance
+
         serializer = self.get_serializer(instance=instance)
         return self.write_response(serializer.data)
 
@@ -93,10 +96,11 @@ class UpdateModelMixin(object):
     """
     修改实例对象
     """
-    def update(self, *args, **kwargs):
-        form = self.get_form(empty_permitted=True)
-        if form.is_valid():
-            instance = self.perform_update(form)
+    async def update(self, *args, **kwargs):
+        obj_instance = await self.get_object()
+        form = self.get_form(empty_permitted=True, instance=obj_instance)
+        if await form.is_valid():
+            instance = await self.perform_update(form)
             if self.need_obj_serializer:
                 self.create_serializer(form)
                 serializer = self.get_serializer(instance=instance)
@@ -107,10 +111,10 @@ class UpdateModelMixin(object):
 
             return self.write_response(data=result, status_code=status.HTTP_200_OK)
 
-        return self.write_response(data=form.errors, status_code=status.HTTP_400_BAD_REQUEST)
+        return self.write_response(data=await form.errors, status_code=status.HTTP_400_BAD_REQUEST)
 
-    def perform_update(self, form):
-        instance = form.save()
+    async def perform_update(self, form):
+        instance = await form.save()
         return instance
 
     def create_serializer(self, form):

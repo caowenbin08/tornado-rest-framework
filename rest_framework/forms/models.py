@@ -239,16 +239,16 @@ class BaseModelForm(BaseForm):
 
         return self.instance
 
-    def save(self, **kwargs):
+    async def save(self, **kwargs):
         """
         保存或变更请求
         :param kwargs:
         :return:
         """
-        if not self.is_valid():
+        if not await self.is_valid():
             raise ValidationError(message=_("The form has errors"))
 
-        validated_data = dict(list(self.cleaned_data.items()) + list(kwargs.items()))
+        validated_data = dict(list((await self.cleaned_data).items()) + list(kwargs.items()))
 
         if self.instance is not None and self.has_changed():
             self.instance = self.update(validated_data)

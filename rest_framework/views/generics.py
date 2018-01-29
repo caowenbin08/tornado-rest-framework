@@ -65,6 +65,7 @@ class BaseAPIHandler(RequestHandler, BabelTranslatorMixin):
         :return:
         """
         self._load_data_and_files()
+        view_log.error("self.request.data: %s" % self.request.data)
         return super(BaseAPIHandler, self).prepare()
 
     def select_parser(self):
@@ -90,6 +91,7 @@ class BaseAPIHandler(RequestHandler, BabelTranslatorMixin):
         :return:
         """
         content_type = self.request.headers.get("Content-Type", "")
+        view_log.error("content_type: %s" % content_type)
         if not content_type:
             self.request_data = self._parse_query_arguments()
             self.request.data = self.request_data
@@ -155,12 +157,24 @@ class BaseAPIHandler(RequestHandler, BabelTranslatorMixin):
                 self._handle_request_exception(e)
             except Exception:
                 app_log.error("Exception in exception handler", exc_info=True)
-                data = {'error_detail': "Internal Server Error"}
-                error_response = Response(data, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+                error_response = self.write_response(
+                    data={'error_detail': _("Internal Server Error")},
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
                 self.write_error(error_response)
 
             if self._prepared_future is not None and not self._prepared_future.done():
                 self._prepared_future.set_result(None)
+
+    def write_response(self, data, status_code=status.HTTP_200_OK, headers=None,
+                       content_type="application/json", **kwargs):
+        return Response(
+            data=data,
+            status_code=status_code,
+            headers=headers,
+            content_type=content_type
+        )
 
     def send_error(self, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, **kwargs):
         if self._headers_written:
@@ -203,7 +217,6 @@ class BaseAPIHandler(RequestHandler, BabelTranslatorMixin):
         :return:
         """
         error_response = None
-
         if isinstance(exc, exceptions.APIException):
             headers = {}
 
@@ -212,16 +225,20 @@ class BaseAPIHandler(RequestHandler, BabelTranslatorMixin):
             else:
                 data = {'error_detail': exc.detail}
 
-            error_response = Response(data, status_code=exc.status_code, headers=headers)
+            error_response = self.write_response(data, status_code=exc.status_code, headers=headers)
+        elif isinstance(exc, exceptions.ValidationError):
+            exc_msg = exc.message_dict
+            data = exc_msg if isinstance(exc_msg, (list, dict)) else {'error_detail': exc_msg}
+            error_response = self.write_response(data, status_code=status.HTTP_400_BAD_REQUEST)
 
         elif isinstance(exc, HTTPError):
             status_code = exc.status_code
-            if status_code == 405:
+            if status_code == status.HTTP_405_METHOD_NOT_ALLOWED:
                 data = {'error_detail': _('The request method does not exist')}
             else:
                 data = {'error_detail': _('Http Error')}
 
-            error_response = Response(data, status_code=exc.status_code)
+            error_response = self.write_response(data, status_code=exc.status_code)
 
         return error_response
 
@@ -269,6 +286,8 @@ class GenericAPIHandler(BaseAPIHandler):
     # 属性值可以是model.field.desc/asc()、+/-model.field的字符串或+/-field（不匹配join的model字段）的元组/列表
     ordering = None
     initial = {}
+    filter_class = None
+    filter_fields = ()
 
     def get_initial(self):
         """
@@ -306,9 +325,13 @@ class GenericAPIHandler(BaseAPIHandler):
         """
         return [import_object(backend) for backend in self.filter_backend_list if backend is not None]
 
-    def filter_queryset(self, queryset):
+    async def filter_queryset(self, queryset):
         for backend in self.load_filter_class:
-            queryset = backend().filter_queryset(self, queryset)
+            filter_cls = backend()
+            queryset = filter_cls.filter_queryset(self, queryset)
+            if asyncio.iscoroutine(queryset):
+                queryset = await queryset
+
         return queryset
 
     def get_object_or_404(self, queryset, *args, **kwargs):
@@ -332,11 +355,16 @@ class GenericAPIHandler(BaseAPIHandler):
                 detail=self.error_msg_404 if self.error_msg_404 else _("Resource data does not exist")
             )
 
-    def get_object(self):
+    async def get_object(self):
         """
         查询单一对象，如果为空抛出404
         """
-        queryset = self.filter_queryset(self.get_queryset()).naive()
+        queryset = self.filter_queryset(self.get_queryset())
+        if asyncio.iscoroutine(queryset):
+            queryset = await queryset
+
+        queryset = queryset.naive()
+
         lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field
         assert lookup_url_kwarg in self.path_kwargs, (
             'Expected view %s to be called with a URL keyword argument '
@@ -406,9 +434,6 @@ class GenericAPIHandler(BaseAPIHandler):
             'data': self.request.data,
         }
 
-        if self.queryset is not None:
-            kwargs.update({'instance': self.get_object()})
-
         if self.request.method in ('POST', 'PUT'):
             kwargs.update({
                 'files': self.request.files,
@@ -443,16 +468,6 @@ class GenericAPIHandler(BaseAPIHandler):
 
         return self.paginator.paginate_queryset(self, queryset)
 
-    def write_response(self, data, status_code=status.HTTP_200_OK, headers=None,
-                       content_type="application/json", **kwargs):
-        return Response(
-            data=data,
-            status_code=status_code,
-            template_name=self.template_name,
-            headers=headers,
-            content_type=content_type
-        )
-
     def write_paginated_response(self, data):
         """
         生成分页返回结构
@@ -475,7 +490,7 @@ class ListAPIHandler(mixins.ListModelMixin, GenericAPIHandler):
     列表
     """
     async def get(self, *args, **kwargs):
-        return self.list(*args, **kwargs)
+        return await self.list(*args, **kwargs)
 
 
 class CreateAPIHandler(mixins.CreateModelMixin, GenericAPIHandler):
@@ -483,7 +498,7 @@ class CreateAPIHandler(mixins.CreateModelMixin, GenericAPIHandler):
     创建对象
     """
     async def post(self, *args, **kwargs):
-        return self.create(*args, **kwargs)
+        return await self.create(*args, **kwargs)
 
 
 class RetrieveAPIHandler(mixins.RetrieveModelMixin, GenericAPIHandler):
@@ -491,7 +506,7 @@ class RetrieveAPIHandler(mixins.RetrieveModelMixin, GenericAPIHandler):
     查看详情
     """
     async def get(self, *args, **kwargs):
-        return self.retrieve(*args, **kwargs)
+        return await self.retrieve(*args, **kwargs)
 
 
 class UpdateAPIHandler(mixins.UpdateModelMixin, GenericAPIHandler):
@@ -499,7 +514,7 @@ class UpdateAPIHandler(mixins.UpdateModelMixin, GenericAPIHandler):
     修改
     """
     async def put(self, *args, **kwargs):
-        return self.update(*args, **kwargs)
+        return await self.update(*args, **kwargs)
 
 
 class DestroyAPIHandler(mixins.DestroyModelMixin, GenericAPIHandler):
@@ -515,10 +530,10 @@ class RetrieveUpdateAPIHandler(mixins.RetrieveModelMixin, mixins.UpdateModelMixi
     查看详情及修改
     """
     async def get(self, *args, **kwargs):
-        return self.retrieve(*args, **kwargs)
+        return await self.retrieve(*args, **kwargs)
 
     async def put(self, *args, **kwargs):
-        return self.update(*args, **kwargs)
+        return await self.update(*args, **kwargs)
 
 
 

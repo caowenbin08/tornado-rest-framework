@@ -379,7 +379,11 @@ class Server(Command):
         debug = kwargs.pop("debug", None)
         if debug is not None:
             app_settings["debug"] = debug
-
+        # try:
+        #     import uvloop
+        #     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+        # except ImportError:
+        #     pass
         AsyncIOMainLoop().install()
         loop = asyncio.get_event_loop()
         app = tornado.web.Application(urlpatterns, **app_settings)

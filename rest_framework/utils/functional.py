@@ -4,6 +4,8 @@ import inspect
 import string
 import random
 import hashlib
+import asyncio
+import functools
 from importlib import import_module
 from collections import OrderedDict
 
@@ -308,3 +310,17 @@ def get_attribute(instance, attributes):
                                  'original exception was: {1}'.format(attr, exc))
 
     return instance
+
+
+def convert_asyncio_task(method):
+    """
+    解决tornado中使用aiohttp的ClientSession出现异常：
+        Timeout context manager should be used inside a task
+    :param method:
+    :return:
+    """
+    @functools.wraps(method)
+    async def wrapper(self, *args, **kwargs):
+        coro = method(self, *args, **kwargs)
+        return await asyncio.ensure_future(coro)
+    return wrapper

@@ -73,8 +73,10 @@ FILTER_FOR_DBFIELD_DEFAULTS = {
     models.DateField:                   {'filter_class': filters.DateFilter},
     models.DateTimeField:               {'filter_class': filters.DateTimeFilter},
     models.TimeField:                   {'filter_class': filters.TimeFilter},
+    models.ForeignKeyField:             {'filter_class': filters.NumberFilter},
+    models.IntegerField:                {'filter_class': filters.NumberFilter},
     models.SmallIntegerField:           {'filter_class': filters.NumberFilter},
-    models.TimestampField:           {'filter_class': filters.NumberFilter},
+    models.TimestampField:              {'filter_class': filters.NumberFilter},
 }
 
 
@@ -100,26 +102,26 @@ class BaseFilterSet(object):
         #     filter_.model = model
         #     filter_.parent = self
 
-    def is_valid(self):
+    async def is_valid(self):
         """
         Return True if the underlying form has no errors, or False otherwise.
         """
-        return self.form.is_valid()
+        return await self.form.is_valid()
 
     @property
-    def errors(self):
+    async def errors(self):
         """
         Return an ErrorDict for the data provided for the underlying form.
         """
-        return self.form.errors
+        return await self.form.errors
 
-    def filter_queryset(self, queryset):
+    async def filter_queryset(self, queryset):
         """
         必须先调用`is_valid()`方法，如果需要附加其他过滤，则重写此方法
         :param queryset:
         :return:
         """
-        for name, value in self.form.cleaned_data.items():
+        for name, value in (await self.form.cleaned_data).items():
             if value in EMPTY_VALUES:
                 continue
 
@@ -128,10 +130,10 @@ class BaseFilterSet(object):
         return queryset
 
     @property
-    def qs(self):
+    async def qs(self):
         if not hasattr(self, '_qs'):
             qs = self.queryset
-            qs = self.filter_queryset(qs)
+            qs = await self.filter_queryset(qs)
             self._qs = qs
         return self._qs
 
@@ -282,18 +284,18 @@ class BaseFilterSet(object):
 
         return filter_class(**default)
 
-    @classmethod
-    def filter_for_reverse_field(cls, field, field_name):
-        rel = field.field.remote_field
-        queryset = field.field.model._default_manager.all()
-        default = {
-            'field_name': field_name,
-            'queryset': queryset,
-        }
-        if rel.multiple:
-            return ModelMultipleChoiceFilter(**default)
-        else:
-            return ModelChoiceFilter(**default)
+    # @classmethod
+    # def filter_for_reverse_field(cls, field, field_name):
+    #     rel = field.field.remote_field
+    #     queryset = field.field.model._default_manager.all()
+    #     default = {
+    #         'field_name': field_name,
+    #         'queryset': queryset,
+    #     }
+    #     if rel.multiple:
+    #         return ModelMultipleChoiceFilter(**default)
+    #     else:
+    #         return ModelChoiceFilter(**default)
 
     @classmethod
     def filter_for_lookup(cls, field, lookup_expr):
@@ -320,65 +322,65 @@ class BaseFilterSet(object):
         if lookup_expr == 'exact' and field.choices:
             return filters.ChoiceFilter, {'choices': field.choices}
 
-        if lookup_expr == 'isnull':
-            data = try_dbfield(DEFAULTS.get, models.BooleanField)
+        # if lookup_expr == 'isnull':
+        #     data = try_dbfield(DEFAULTS.get, models.BooleanField)
+        #
+        #     filter_class = data.get('filter_class')
+        #     params = data.get('extra', lambda field: {})(field)
+        #     return filter_class, params
 
-            filter_class = data.get('filter_class')
-            params = data.get('extra', lambda field: {})(field)
-            return filter_class, params
+        # if lookup_expr == 'in':
+        #     class ConcreteInFilter(BaseInFilter, filter_class):
+        #         pass
+        #     ConcreteInFilter.__name__ = cls._csv_filter_class_name(
+        #         filter_class, lookup_expr
+        #     )
+        #
+        #     return ConcreteInFilter, params
 
-        if lookup_expr == 'in':
-            class ConcreteInFilter(BaseInFilter, filter_class):
-                pass
-            ConcreteInFilter.__name__ = cls._csv_filter_class_name(
-                filter_class, lookup_expr
-            )
-
-            return ConcreteInFilter, params
-
-        if lookup_expr == 'range':
-            class ConcreteRangeFilter(BaseRangeFilter, filter_class):
-                pass
-            ConcreteRangeFilter.__name__ = cls._csv_filter_class_name(
-                filter_class, lookup_expr
-            )
-
-            return ConcreteRangeFilter, params
+        # if lookup_expr == 'range':
+        #     class ConcreteRangeFilter(BaseRangeFilter, filter_class):
+        #         pass
+        #     ConcreteRangeFilter.__name__ = cls._csv_filter_class_name(
+        #         filter_class, lookup_expr
+        #     )
+        #
+        #     return ConcreteRangeFilter, params
 
         return filter_class, params
 
-    @classmethod
-    def _csv_filter_class_name(cls, filter_class, lookup_type):
-        """
-        Generate a suitable class name for a concrete filter class. This is not
-        completely reliable, as not all filter class names are of the format
-        <Type>Filter.
-
-        ex::
-
-            FilterSet._csv_filter_class_name(DateTimeFilter, 'in')
-
-            returns 'DateTimeInFilter'
-
-        """
-        # DateTimeFilter => DateTime
-        type_name = filter_class.__name__
-        if type_name.endswith('Filter'):
-            type_name = type_name[:-6]
-
-        # in => In
-        lookup_name = lookup_type.capitalize()
-
-        # DateTimeInFilter
-        return str('%s%sFilter' % (type_name, lookup_name))
+    # @classmethod
+    # def _csv_filter_class_name(cls, filter_class, lookup_type):
+    #     """
+    #     Generate a suitable class name for a concrete filter class. This is not
+    #     completely reliable, as not all filter class names are of the format
+    #     <Type>Filter.
+    #
+    #     ex::
+    #
+    #         FilterSet._csv_filter_class_name(DateTimeFilter, 'in')
+    #
+    #         returns 'DateTimeInFilter'
+    #
+    #     """
+    #     # DateTimeFilter => DateTime
+    #     type_name = filter_class.__name__
+    #     if type_name.endswith('Filter'):
+    #         type_name = type_name[:-6]
+    #
+    #     # in => In
+    #     lookup_name = lookup_type.capitalize()
+    #
+    #     # DateTimeInFilter
+    #     return str('%s%sFilter' % (type_name, lookup_name))
 
 
 class FilterSet(BaseFilterSet, metaclass=FilterSetMetaclass):
     pass
 
 
-def filterset_factory(model, fields=ALL_FIELDS):
-    meta = type(str('Meta'), (object,), {'model': model, 'fields': fields})
-    filterset = type(str('%sFilterSet' % model._meta.object_name),
-                     (FilterSet,), {'Meta': meta})
-    return filterset
+# def filterset_factory(model, fields=ALL_FIELDS):
+#     meta = type(str('Meta'), (object,), {'model': model, 'fields': fields})
+#     filterset = type(str('%sFilterSet' % model._meta.object_name),
+#                      (FilterSet,), {'Meta': meta})
+#     return filterset

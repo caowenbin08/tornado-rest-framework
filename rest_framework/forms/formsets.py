@@ -60,24 +60,24 @@ class BaseFormSet(object):
         return form
 
     @property
-    def cleaned_data(self):
+    async def cleaned_data(self):
         """
         Returns a list of form.cleaned_data dicts for every form in self.forms.
         """
-        if not self.is_valid():
+        if not await self.is_valid():
             return []
-        return [form.cleaned_data for form in self.forms]
+        return [await form.cleaned_data for form in self.forms]
 
     @property
-    def errors(self):
+    async def errors(self):
         """
         Returns a list of form.errors for every form in self.forms.
         """
         if self._errors is None:
-            self.full_clean()
+            await self.full_clean()
         return self._errors
 
-    def is_valid(self):
+    async def is_valid(self):
         """
         Returns True if every form in self.forms is valid.
         """
@@ -88,11 +88,11 @@ class BaseFormSet(object):
 
         for i in range(0, self.total_form_count):
             form = self.forms[i]
-            forms_valid &= form.is_valid()
+            forms_valid &= await form.is_valid()
 
-        return forms_valid and not self.errors
+        return forms_valid and not await self.errors
 
-    def full_clean(self):
+    async def full_clean(self):
         """
         Cleans all of self.data and populates self._errors and
         self._non_form_errors.
@@ -104,10 +104,13 @@ class BaseFormSet(object):
         form_errors = []
         for i in range(0, self.total_form_count):
             form = self.forms[i]
-            if form.errors:
-                form_errors.append({"Form-%d" % (i+1): form.errors.as_data()})
+            form_error = await form.errors
+            if form_error:
+                form_errors.append({"Form-%d" % (i+1): form_error.as_data()})
+
         if form_errors:
             self._errors = ErrorList(form_errors)
+
         try:
             if self.max_num is not None and self.total_form_count > self.max_num:
                 raise ValidationError(
@@ -125,7 +128,6 @@ class BaseFormSet(object):
             self.clean()
         except ValidationError as e:
             self._errors = ErrorList(e.error_list)
-            # self.add_error(None, e)
 
     def clean(self):
         """
@@ -156,10 +158,10 @@ def formset_factory(form, formset=BaseFormSet, min_num=1, max_num=None):
     return type(form.__name__ + str('FormSet'), (formset,), attrs)
 
 
-def all_valid(formsets):
+async def all_valid(formsets):
     """Returns true if every formset in formsets is valid."""
     valid = True
     for formset in formsets:
-        if not formset.is_valid():
+        if not await formset.is_valid():
             valid = False
     return valid

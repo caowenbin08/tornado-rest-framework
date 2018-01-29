@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import datetime
 import binascii
+import string
 from decimal import Decimal
 
 from rest_framework.core import exceptions

@@ -19,8 +19,8 @@ from rest_framework.utils.cached_property import cached_property
 from rest_framework.utils.lazy import lazy
 from rest_framework.utils.transcoder import force_text
 from rest_framework.core.safe import hashers
-from rest_framework.core.exceptions import ValidationError, SkipFieldError, ErrorList
-from rest_framework.utils.constants import EMPTY_VALUES, FILE_INPUT_CONTRADICTION, empty, REGEX_TYPE
+from rest_framework.core.exceptions import ValidationError, ErrorList
+from rest_framework.utils.constants import EMPTY_VALUES, FILE_INPUT_CONTRADICTION, empty
 
 __author__ = 'caowenbin'
 
@@ -163,6 +163,9 @@ class Field(object):
 
         Raises ValidationError for any errors.
         """
+        if getattr(self.parent, "empty_permitted", False) and value is empty:
+            return value
+
         self.validate(value)
         if value is empty:
             return self.get_default()
@@ -812,16 +815,6 @@ class DictField(Field):
         super(DictField, self).__init__(*args, **kwargs)
         self.child.bind(field_name='', parent=self)
 
-    # def validate(self, value):
-    #     pass
-
-    # def get_value(self, dictionary):
-    #     # We override the default field access in order to support
-    #     # dictionaries in HTML forms.
-    #     if html.is_html_input(dictionary):
-    #         return html.parse_html_dict(dictionary, prefix=self.field_name)
-    #     return dictionary.get(self.field_name, empty)
-
     def clean(self, data):
         if not isinstance(data, dict):
             raise ValidationError(
@@ -922,7 +915,7 @@ class MultiValueField(Field):
         return [initial]
 
     def has_changed(self, initial, data):
-        if self.parent.empty_permitted and data is empty:
+        if getattr(self.parent, "empty_permitted", False) and data is empty:
             return False
 
         if initial is None:

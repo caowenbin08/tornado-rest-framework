@@ -113,6 +113,7 @@ class AsyncRedisCache(BaseCache):
         if self._client is None:
             self._client = await self._create_pool_connection()
         return self._client
+
     # Server API
     async def _get_redis_version(self):
         with await (await self.client) as client:
@@ -138,6 +139,15 @@ class AsyncRedisCache(BaseCache):
         """ Deletes a single key """
         with await (await self.client) as client:
             return await client.delete(key)
+
+    async def clean_keys(self):
+        """
+        清空redis
+        :return:
+        """
+        with await (await self.client) as client:
+            keys = await client.keys("*")
+            return await client.delete(*keys)
 
     async def delete_many(self, *keys):
         """ Deletes many keys """
@@ -169,8 +179,10 @@ class AsyncRedisCache(BaseCache):
             already exists.
         :return:
         """
-        expire = 0 if not ex else ex.seconds + ex.days * 24 * 3600 if isinstance(ex, datetime.timedelta) else ex
-        pexpire = 0 if not ex else (px.seconds + px.days * 24 * 3600) * 1000 + int(px.microseconds / 1000)\
+        expire = 0 if not ex else ex.seconds + ex.days * 24 * 3600 \
+            if isinstance(ex, datetime.timedelta) else ex
+        pexpire = 0 if not ex \
+            else (px.seconds + px.days * 24 * 3600) * 1000 + int(px.microseconds / 1000) \
             if isinstance(px, datetime.timedelta) else px
         exist = "SET_IF_EXIST" if xx else 'SET_IF_NOT_EXIST' if nx else None
         with await (await self.client) as client:

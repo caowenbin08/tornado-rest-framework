@@ -95,7 +95,8 @@ class SearchFilter(BaseFilterBackend):
             return queryset
 
         query_model_fields = self.get_query_model_fields(queryset)
-        orm_lookups = [self.construct_search(query_model_fields, str(search_field)) for search_field in search_fields]
+        orm_lookups = [self.construct_search(query_model_fields, str(search_field))
+                       for search_field in search_fields]
 
         for search_term in search_terms:
             queries = [models.Expression(lhs, op, rhs % search_term) for lhs, op, rhs in orm_lookups]
@@ -148,7 +149,7 @@ class OrderingFilter(BaseFilterBackend):
         query_model_name = queryset.model_class.__name__
         for item in ordering:
             if isinstance(item, models.Field):
-                prefix = '-' if item._ordering == 'DESC' else ''
+                prefix = '-' if item._ordering.lower() == 'desc' else ''
                 if query_model_name == item.model_class.__name__:
                     item = "{prefix}{field_name}".format(prefix=prefix, field_name=item.name)
                 else:
@@ -231,13 +232,13 @@ class FilterBackend(BaseFilterBackend):
 
         return None
 
-    def filter_queryset(self, request_handler, queryset):
+    async def filter_queryset(self, request_handler, queryset):
         filter_class = self.get_filter_class(request_handler, queryset)
 
         if filter_class:
             filterset = filter_class(request_handler.request.data, queryset)
-            if not filterset.is_valid() and self.raise_exception:
-                raise ValidationError(filterset.errors)
-            return filterset.qs
+            if not await filterset.is_valid() and self.raise_exception:
+                raise ValidationError(await filterset.errors)
+            return await filterset.qs
         return queryset
 

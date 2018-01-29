@@ -5,7 +5,6 @@ from collections import OrderedDict
 from rest_framework.conf import settings
 from rest_framework.core.exceptions import ValidationError, ErrorDict, ErrorList, SkipFieldError
 from rest_framework.forms.fields import Field, FileField
-from rest_framework.lib import aioawait
 from rest_framework.utils.cached_property import cached_property
 from rest_framework.utils.functional import set_value
 from rest_framework.utils.constants import empty
@@ -109,27 +108,26 @@ class BaseForm(object):
         return self._fields
 
     @property
-    def cleaned_data(self):
+    async def cleaned_data(self):
         if self._cleaned_data is None:
-            aioawait.await(self.full_clean())
+            await self.full_clean()
         return self._cleaned_data
 
     @property
-    def errors(self):
+    async def errors(self):
         """
         Returns an ErrorDict for the data provided for the form
         """
         if self._errors is None:
-            aioawait.await(self.full_clean())
-
+            await self.full_clean()
         return self._errors
 
-    def is_valid(self):
+    async def is_valid(self):
         """
         Returns True if the form has no errors. Otherwise, False. If errors are
         being ignored, returns False.
         """
-        return self.is_bound and not self.errors
+        return self.is_bound and not await self.errors
 
     def add_error(self, field, error):
         if not isinstance(error, ValidationError):
@@ -147,14 +145,14 @@ class BaseForm(object):
             error = {field or settings.NON_FIELD_ERRORS: error.error_list}
 
         for field, error_list in error.items():
-            if field not in self.errors:
+            if field not in self._errors:
                 if field != settings.NON_FIELD_ERRORS and field not in self.fields:
                     raise ValueError("'%s' has no field named '%s'." % (self.__class__.__name__, field))
                 self._errors[field] = ErrorList()
 
             self._errors[field].extend(error_list)
-            if field in self.cleaned_data:
-                del self.cleaned_data[field]
+            if field in self._cleaned_data:
+                del self._cleaned_data[field]
 
     async def full_clean(self):
         """
@@ -220,6 +218,7 @@ class BaseForm(object):
             cleaned_data = self.clean()
             if asyncio.iscoroutine(cleaned_data):
                 cleaned_data = await cleaned_data
+
         except ValidationError as e:
             self.add_error(None, e)
         else:

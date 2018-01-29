@@ -37,5 +37,5 @@ def aes(app, length=16, allowed_chars=None):
 
     key = get_random_string(length=length, allowed_chars=allowed_chars)
     key_bytes = force_bytes(key)
-    aes_key = base64.b64encode(key_bytes).rstrip(b"=")
+    aes_key = base64.urlsafe_b64encode(key_bytes).rstrip(b"=")
     print("AES KEY:", aes_key)
