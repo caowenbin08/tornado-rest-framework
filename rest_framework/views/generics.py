@@ -345,14 +345,15 @@ class GenericAPIHandler(BaseAPIHandler):
         try:
             return self.get_queryset(queryset).filter(*args, **kwargs).get()
         except AttributeError:
-            queryset_name = queryset.__name__ if isinstance(queryset, type) else queryset.__class__.__name__
-            raise ValueError(
-                "First argument to get_object_or_404() must be a Model or SelectQuery, not '%s'." % queryset_name
-            )
+            queryset_name = queryset.__name__ if isinstance(queryset, type) \
+                else queryset.__class__.__name__
+            raise ValueError("First argument to get_object_or_404() must be a Model or SelectQuery,"
+                             " not '%s'." % queryset_name)
         except queryset.model_class.DoesNotExist:
             raise exceptions.APIException(
                 status_code=404,
-                detail=self.error_msg_404 if self.error_msg_404 else _("Resource data does not exist")
+                detail=self.error_msg_404 if self.error_msg_404
+                else _("Resource data does not exist")
             )
 
     async def get_object(self):
@@ -366,14 +367,15 @@ class GenericAPIHandler(BaseAPIHandler):
         queryset = queryset.naive()
 
         lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field
-        assert lookup_url_kwarg in self.path_kwargs, (
+        path_kwargs = self.path_kwargs or self.request_data
+        assert lookup_url_kwarg in path_kwargs, (
             'Expected view %s to be called with a URL keyword argument '
             'named "%s". Fix your URL conf, or set the `.lookup_field` '
             'attribute on the view correctly.' %
             (self.__class__.__name__, lookup_url_kwarg)
         )
 
-        filter_kwargs = {self.lookup_field: self.path_kwargs[lookup_url_kwarg]}
+        filter_kwargs = {self.lookup_field: path_kwargs[lookup_url_kwarg]}
         obj = self.get_object_or_404(queryset, **filter_kwargs)
 
         # 检查操作权限
