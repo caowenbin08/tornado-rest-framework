@@ -983,7 +983,7 @@ class PasswordField(CharField):
         'invalid': _('Please enter a valid password')
     }
 
-    def __init__(self, protection='default', level="number", *args, **kwargs):
+    def __init__(self, protection='default', level="high", *args, **kwargs):
         """
         :param protection: 密码加密方式
                            default 默认，取settings PASSWORD_HASHERS的第1个

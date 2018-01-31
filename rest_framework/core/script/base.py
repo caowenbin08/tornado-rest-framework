@@ -312,6 +312,8 @@ class Manager(object):
 
         try:
             result = self.handle(sys.argv[0], sys.argv[1:])
+        except KeyboardInterrupt as e:
+            result = 0
         except SystemExit as e:
             result = e.code
         except CommandError as e:

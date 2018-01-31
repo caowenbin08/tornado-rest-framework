@@ -194,7 +194,7 @@ class BaseForm(object):
                     value = field.clean(value)
 
                 if customize_method is not None:
-                    value = customize_method(None if value is empty else value)
+                    value = customize_method(value)
                     if asyncio.iscoroutine(value):
                         value = await value
 
