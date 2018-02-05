@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import re
 import asyncio
 import traceback
 import logging
@@ -10,6 +11,8 @@ from tornado.log import app_log, gen_log
 from tornado.web import RequestHandler, HTTPError
 
 from rest_framework.core import exceptions
+from rest_framework.core import message
+from rest_framework.core.track import trackers
 from rest_framework.core.exceptions import APIException
 from rest_framework.core.translation import locale
 from rest_framework.views import mixins
@@ -39,6 +42,20 @@ __all__ = [
 view_log = logging.getLogger("rest_framework.views")
 
 
+def _clean_credentials(credentials):
+    """
+    屏蔽密码或密钥等重要信息
+    :param credentials:
+    :return:
+    """
+    sensitive_credentials = re.compile('api|token|key|secret|password|signature|pwd', re.I)
+    cleansed_substitute = '********************'
+    for key in credentials:
+        if sensitive_credentials.search(key):
+            credentials[key] = cleansed_substitute
+    return credentials
+
+
 def _has_stream_request_body(cls):
     if not issubclass(cls, RequestHandler):
         raise TypeError("expected subclass of RequestHandler, got %r", cls)
@@ -51,9 +68,15 @@ class BaseAPIHandler(RequestHandler, BabelTranslatorMixin):
     """
     # 不需要检查xsrf的请求方法
     NOT_CHECK_XSRF_METHOD = ("GET", "HEAD", "OPTIONS")
+    tracker_label = "default"
+    access_tracker_event_name = "app.access"
+    exec_tracker_event_name = "app.exceptions"
+    # 是否记录正常请求日志, False不记录 True 记录
+    is_write_access_tracker = True
 
     def __init__(self, application, request, **kwargs):
         self.request_data = None
+        message.sub("tornado-rest-framework.app.log", self.write_log)
         super(BaseAPIHandler, self).__init__(application, request, **kwargs)
 
     def data_received(self, chunk):
@@ -65,7 +88,6 @@ class BaseAPIHandler(RequestHandler, BabelTranslatorMixin):
         :return:
         """
         self._load_data_and_files()
-        view_log.error("self.request.data: %s" % self.request.data)
         return super(BaseAPIHandler, self).prepare()
 
     def select_parser(self):
@@ -91,7 +113,6 @@ class BaseAPIHandler(RequestHandler, BabelTranslatorMixin):
         :return:
         """
         content_type = self.request.headers.get("Content-Type", "")
-        view_log.error("content_type: %s" % content_type)
         if not content_type:
             self.request_data = self._parse_query_arguments()
             self.request.data = self.request_data
@@ -242,11 +263,45 @@ class BaseAPIHandler(RequestHandler, BabelTranslatorMixin):
 
         return error_response
 
+    def write_log(self, response, *args, **kwargs):
+        status_code = response.status_code
+        params = _clean_credentials(self.request_data)
+        log_context = dict(params=params)
+        log_context["method"] = self.request.method
+        log_context["uri"] = self.request.uri
+        log_context["remote_ip"] = self.request.remote_ip
+
+        if status.is_server_error(status_code):
+            with trackers[self.tracker_label].context(self.exec_tracker_event_name, log_context):
+                trackers[self.tracker_label].emit(
+                    self.exec_tracker_event_name,
+                    response.data,
+                    "error"
+                )
+        elif status.is_client_error(status_code):
+            with trackers[self.tracker_label].context(self.exec_tracker_event_name, log_context):
+                trackers[self.tracker_label].emit(
+                    self.exec_tracker_event_name,
+                    response.data,
+                    "WARNING"
+                )
+
+        elif status.is_success(status_code) and self.is_write_access_tracker:
+            with trackers[self.tracker_label].context(self.access_tracker_event_name, log_context):
+                trackers[self.tracker_label].emit(
+                    self.access_tracker_event_name,
+                    response.data,
+                    "info"
+                )
+
     def finalize_response(self, response, *args, **kwargs):
+
         if not isinstance(response, Response):
             raise TypeError("Request return value types must be the Response")
+        message.pub("tornado-rest-framework.app.log", response)
         self.set_status(response.status_code)
         self.set_header('Content-Type', response.content_type)
+
         return self.write(response.data)
 
     def get_user_locale(self):

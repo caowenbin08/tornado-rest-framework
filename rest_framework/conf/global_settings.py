@@ -4,7 +4,8 @@ __author__ = 'caowenbin'
 
 # 是否调试模式
 DEBUG = False
-
+TIME_ZONE = 'UTC'
+USE_TZ = True
 # 是否开启XSRF防护, 默认不开启
 XSRF_COOKIES = False
 
@@ -64,3 +65,11 @@ DATETIME_INPUT_FORMATS = [
     '%m/%d/%y %H:%M',        # '10/25/06 14:30'
     '%m/%d/%y',              # '10/25/06'
 ]
+
+# 日志跟踪配置
+LOG_TRACKERS = {
+    'default': {
+        'ENGINE': 'rest_framework.core.track.backend.logger',
+        'OPTIONS': {},
+    }
+}

@@ -369,7 +369,6 @@ class Server(Command):
 
         rules = kwargs.get("rules", None)
         urlpatterns = self.url_patterns(rules)
-        print("urlpatterns:", urlpatterns)
         app_settings = dict(
             gzip=True,
             debug=settings.DEBUG,
