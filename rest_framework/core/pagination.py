@@ -200,6 +200,9 @@ class PageNumberPagination(BasePagination):
 
         paginator = self.paginator_class(queryset, page_size, self.orphans)
         setattr(self, "paginator", paginator)
+        if self.paginator.count == 0:
+            return []
+
         page_number = self.get_page_number()
 
         return self.paginator.page_data(page_number)

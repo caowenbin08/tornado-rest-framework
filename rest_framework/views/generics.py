@@ -112,8 +112,9 @@ class BaseAPIHandler(RequestHandler, BabelTranslatorMixin):
         解析请求参数
         :return:
         """
+        method = self.request.method.lower()
         content_type = self.request.headers.get("Content-Type", "")
-        if not content_type:
+        if not content_type or method == "get":
             self.request_data = self._parse_query_arguments()
             self.request.data = self.request_data
             return

@@ -276,26 +276,7 @@ class BaseFilterSet(object):
         filter_class, params = cls.filter_for_lookup(field, lookup_expr)
         default.update(params)
 
-        # assert filter_class is not None, (
-        #     "%s resolved field '%s' with '%s' lookup to an unrecognized field "
-        #     "type %s. Try adding an override to 'Meta.filter_overrides'. See: "
-        #     "https://django-filter.readthedocs.io/en/master/ref/filterset.html#customise-filter-generation-with-filter-overrides"
-        # ) % (cls.__name__, field_name, lookup_expr, field.__class__.__name__)
-
         return filter_class(**default)
-
-    # @classmethod
-    # def filter_for_reverse_field(cls, field, field_name):
-    #     rel = field.field.remote_field
-    #     queryset = field.field.model._default_manager.all()
-    #     default = {
-    #         'field_name': field_name,
-    #         'queryset': queryset,
-    #     }
-    #     if rel.multiple:
-    #         return ModelMultipleChoiceFilter(**default)
-    #     else:
-    #         return ModelChoiceFilter(**default)
 
     @classmethod
     def filter_for_lookup(cls, field, lookup_expr):
@@ -322,65 +303,8 @@ class BaseFilterSet(object):
         if lookup_expr == 'exact' and field.choices:
             return filters.ChoiceFilter, {'choices': field.choices}
 
-        # if lookup_expr == 'isnull':
-        #     data = try_dbfield(DEFAULTS.get, models.BooleanField)
-        #
-        #     filter_class = data.get('filter_class')
-        #     params = data.get('extra', lambda field: {})(field)
-        #     return filter_class, params
-
-        # if lookup_expr == 'in':
-        #     class ConcreteInFilter(BaseInFilter, filter_class):
-        #         pass
-        #     ConcreteInFilter.__name__ = cls._csv_filter_class_name(
-        #         filter_class, lookup_expr
-        #     )
-        #
-        #     return ConcreteInFilter, params
-
-        # if lookup_expr == 'range':
-        #     class ConcreteRangeFilter(BaseRangeFilter, filter_class):
-        #         pass
-        #     ConcreteRangeFilter.__name__ = cls._csv_filter_class_name(
-        #         filter_class, lookup_expr
-        #     )
-        #
-        #     return ConcreteRangeFilter, params
-
         return filter_class, params
-
-    # @classmethod
-    # def _csv_filter_class_name(cls, filter_class, lookup_type):
-    #     """
-    #     Generate a suitable class name for a concrete filter class. This is not
-    #     completely reliable, as not all filter class names are of the format
-    #     <Type>Filter.
-    #
-    #     ex::
-    #
-    #         FilterSet._csv_filter_class_name(DateTimeFilter, 'in')
-    #
-    #         returns 'DateTimeInFilter'
-    #
-    #     """
-    #     # DateTimeFilter => DateTime
-    #     type_name = filter_class.__name__
-    #     if type_name.endswith('Filter'):
-    #         type_name = type_name[:-6]
-    #
-    #     # in => In
-    #     lookup_name = lookup_type.capitalize()
-    #
-    #     # DateTimeInFilter
-    #     return str('%s%sFilter' % (type_name, lookup_name))
 
 
 class FilterSet(BaseFilterSet, metaclass=FilterSetMetaclass):
     pass
-
-
-# def filterset_factory(model, fields=ALL_FIELDS):
-#     meta = type(str('Meta'), (object,), {'model': model, 'fields': fields})
-#     filterset = type(str('%sFilterSet' % model._meta.object_name),
-#                      (FilterSet,), {'Meta': meta})
-#     return filterset

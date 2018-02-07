@@ -810,7 +810,9 @@ class ListField(Field):
         pass
 
     def clean(self, value):
-        if isinstance(value, type('')) or isinstance(value, collections.Mapping)\
+        if value is empty:
+            value = []
+        elif isinstance(value, type('')) or isinstance(value, collections.Mapping)\
                 or not hasattr(value, '__iter__'):
             raise ValidationError(
                 self.error_messages['not_a_list'],
