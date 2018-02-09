@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import inspect
 import re
+import pytz
 import uuid
 import copy
 import logging
@@ -14,7 +15,7 @@ from decimal import Decimal, DecimalException
 from rest_framework.conf import settings
 from rest_framework.core.translation import gettext as _
 from rest_framework.core import validators
-from rest_framework.utils import functional, timezone
+from rest_framework.utils import functional
 from rest_framework.utils.cached_property import cached_property
 from rest_framework.utils.lazy import lazy
 from rest_framework.utils.transcoder import force_text
@@ -395,27 +396,26 @@ def get_format(format_type):
 get_format_lazy = lazy(get_format, str, list, tuple)
 
 
-def from_current_timezone(value):
-    """
-    When time zone support is enabled, convert naive datetimes
-    entered in the current time zone to aware datetimes.
-    """
-    if settings.USE_TZ and value is not None and timezone.is_naive(value):
-        current_timezone = timezone.get_current_timezone()
-        try:
-            return timezone.make_aware(value, current_timezone)
-        except Exception:
-            message = _(
-                '%(datetime)s couldn\'t be interpreted '
-                'in time zone %(current_timezone)s; it '
-                'may be ambiguous or it may not exist.'
-            )
-            params = {'datetime': value, 'current_timezone': current_timezone}
-            raise ValidationError(
-                message,
-                code='ambiguous_timezone',
-                params=params,
-            )
+def to_utc_timezone(value):
+    try:
+        from_zone = pytz.timezone(settings.SHOW_TIME_ZONE)
+        to_zone = pytz.timezone(settings.TIME_ZONE)
+        value = value.replace(tzinfo=from_zone)
+        value = value.astimezone(to_zone)
+
+        return value
+    except Exception:
+        message = _(
+            '%(datetime)s couldn\'t be interpreted '
+            'in time zone %(current_timezone)s; it '
+            'may be ambiguous or it may not exist.'
+        )
+        params = {'datetime': value, 'current_timezone': settings.TIME_ZONE}
+        raise ValidationError(
+            message,
+            code='ambiguous_timezone',
+            params=params,
+        )
 
     return value
 
@@ -478,12 +478,12 @@ class DateTimeField(BaseTemporalField):
         if value in self.empty_values:
             return None
         if isinstance(value, datetime.datetime):
-            return from_current_timezone(value)
+            return to_utc_timezone(value)
         if isinstance(value, datetime.date):
             result = datetime.datetime(value.year, value.month, value.day)
-            return from_current_timezone(result)
+            return to_utc_timezone(result)
         result = super(DateTimeField, self).to_python(value)
-        return from_current_timezone(result)
+        return to_utc_timezone(result)
 
     def strptime(self, value, format):
         return datetime.datetime.strptime(force_text(value), format)

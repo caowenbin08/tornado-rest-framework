@@ -4,8 +4,11 @@ __author__ = 'caowenbin'
 
 # 是否调试模式
 DEBUG = False
+# 存表为时间区
 TIME_ZONE = 'UTC'
-USE_TZ = True
+# 显示的时间区
+SHOW_TIME_ZONE = "UTC"
+
 # 是否开启XSRF防护, 默认不开启
 XSRF_COOKIES = False
 

@@ -246,13 +246,25 @@ class AsyncRedisCache(BaseCache):
         with await (await self.client) as client:
             return bool(await client.exists(self.make_key(key, version=version)))
 
-    async def incr(self, key, delta=1, version=None):
+    async def incr(self, key, version=None):
+        """ Increments a key by the delta """
+        key = self.make_key(key, version=version)
+        with await (await self.client) as client:
+            return await client.incr(key)
+
+    async def decr(self, key, version=None):
+        """ Decrements a key by the delta. """
+        key = self.make_key(key, version=version)
+        with await (await self.client) as client:
+            return await client.decr(key)
+
+    async def incrby(self, key, delta=1, version=None):
         """ Increments a key by the delta """
         key = self.make_key(key, version=version)
         with await (await self.client) as client:
             return await client.incrby(key, delta)
 
-    async def decr(self, key, delta=1, version=None):
+    async def decrby(self, key, delta=1, version=None):
         """ Decrements a key by the delta. """
         key = self.make_key(key, version=version)
         with await (await self.client) as client:

@@ -86,7 +86,7 @@ class UniqueTogetherValidator(object):
     联合唯一索引校验，主要作用于Model的`Meta.indexes`中定义的唯一索引列表
     """
     message = _("Resource data already exists. "
-                "The reason is that {field_names} constitutes a unique index")
+                "The reason is that (%(field_names)s) constitutes a unique index")
     missing_message = _('This field is required')
 
     def __init__(self, queryset, fields, message=None):

@@ -240,7 +240,7 @@ class BaseForm(object):
             if hasattr(validator, 'set_context'):
                 validator.set_context(self)
 
-            validator(self.cleaned_data)
+            validator(await self.cleaned_data)
 
     async def clean(self):
         """

@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
+import pytz
 import copy
 import inspect
 import json
+import datetime
 
+from rest_framework.conf import settings
 from rest_framework.lib.peewee import SelectQuery
 from rest_framework.utils.constants import empty, REGEX_TYPE
-from rest_framework.utils.functional import get_attribute, is_simple_callable
+from rest_framework.utils.functional import get_attribute
 
 __author__ = 'caowenbin'
 
@@ -220,12 +223,18 @@ class BaseTemporalField(Field):
         self.output_format = output_format
 
     def to_representation(self, value):
+
         if not value:
             return None
 
         if self.output_format is None or isinstance(value, str):
             return value
 
+        if isinstance(value, datetime.datetime):
+            to_zone = pytz.timezone(settings.SHOW_TIME_ZONE)
+            from_zone = pytz.timezone(settings.TIME_ZONE)
+            value = value.replace(tzinfo=from_zone)
+            value = value.astimezone(to_zone)
         return value.strftime(self.output_format)
 
 
