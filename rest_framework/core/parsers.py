@@ -47,6 +47,6 @@ class JSONParser(BaseParser):
             data = json_decode(request.body) if request.body else {}
             return data
         except ValueError as exc:
-            raise ParseError('JSON parse error - {error_msg}'.format(str(exc)))
+            raise ParseError('JSON parse error - %s' % exc)
 
 

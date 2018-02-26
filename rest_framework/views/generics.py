@@ -13,8 +13,9 @@ from tornado.web import RequestHandler, HTTPError
 from rest_framework.core import exceptions
 from rest_framework.core import message
 from rest_framework.core.track import trackers
-from rest_framework.core.exceptions import APIException
+from rest_framework.core.exceptions import APIException, ValidationError, ErrorDict, ErrorList
 from rest_framework.core.translation import locale
+from rest_framework.lib.peewee import IntegrityError
 from rest_framework.views import mixins
 from rest_framework.conf import settings
 from rest_framework.core.db import models
@@ -48,6 +49,9 @@ def _clean_credentials(credentials):
     :param credentials:
     :return:
     """
+    if isinstance(credentials, (type(None), list)):
+        return credentials
+
     sensitive_credentials = re.compile('api|token|key|secret|password|signature|pwd', re.I)
     cleansed_substitute = '********************'
     for key in credentials:
@@ -116,6 +120,8 @@ class BaseAPIHandler(RequestHandler, BabelTranslatorMixin):
         content_type = self.request.headers.get("Content-Type", "")
         if not content_type or method == "get":
             self.request_data = self._parse_query_arguments()
+            if self.path_kwargs:
+                self.request_data.update(self.path_kwargs)
             self.request.data = self.request_data
             return
 
@@ -132,7 +138,6 @@ class BaseAPIHandler(RequestHandler, BabelTranslatorMixin):
 
         self._transforms = transforms
         method = self.request.method
-
         try:
             if method not in self.SUPPORTED_METHODS:
                 raise HTTPError(405)
@@ -191,6 +196,9 @@ class BaseAPIHandler(RequestHandler, BabelTranslatorMixin):
 
     def write_response(self, data, status_code=status.HTTP_200_OK, headers=None,
                        content_type="application/json", **kwargs):
+        if isinstance(data, Response):
+            return data
+
         return Response(
             data=data,
             status_code=status_code,
@@ -232,6 +240,30 @@ class BaseAPIHandler(RequestHandler, BabelTranslatorMixin):
         self.finalize_response(response)
         self.finish()
 
+    @staticmethod
+    def add_error(error, field=None):
+        if not isinstance(error, ValidationError):
+            error = ValidationError(error)
+
+        if hasattr(error, 'error_dict'):
+            if field is not None:
+                raise TypeError(
+                    "The argument `field` must be `None` when the `error` "
+                    "argument contains errors for multiple fields."
+                )
+            else:
+                error = error.error_dict
+        else:
+            error = {field or settings.NON_FIELD_ERRORS: error.error_list}
+
+        _errors = ErrorDict()
+        for field, error_list in error.items():
+            if field not in _errors:
+                _errors[field] = ErrorList()
+
+            _errors[field].extend(error_list)
+        return _errors
+
     def handle_exception(self, exc):
         """
         统一异常处理
@@ -240,27 +272,22 @@ class BaseAPIHandler(RequestHandler, BabelTranslatorMixin):
         """
         error_response = None
         if isinstance(exc, exceptions.APIException):
-            headers = {}
-
-            if isinstance(exc.detail, (list, dict)):
-                data = exc.detail
-            else:
-                data = {'error_detail': exc.detail}
-
-            error_response = self.write_response(data, status_code=exc.status_code, headers=headers)
+            data = self.add_error(exc.detail)
+            error_response = self.write_response(data=data, status_code=exc.status_code)
         elif isinstance(exc, exceptions.ValidationError):
-            exc_msg = exc.message_dict
-            data = exc_msg if isinstance(exc_msg, (list, dict)) else {'error_detail': exc_msg}
-            error_response = self.write_response(data, status_code=status.HTTP_400_BAD_REQUEST)
+            data = self.add_error(exc)
+            error_response = self.write_response(data=data, status_code=status.HTTP_400_BAD_REQUEST)
 
         elif isinstance(exc, HTTPError):
             status_code = exc.status_code
             if status_code == status.HTTP_405_METHOD_NOT_ALLOWED:
-                data = {'error_detail': _('The request method does not exist')}
+                data = self.add_error(_('The request method does not exist'))
             else:
-                data = {'error_detail': _('Http Error')}
-
-            error_response = self.write_response(data, status_code=exc.status_code)
+                data = self.add_error(_('Http Error'))
+            error_response = self.write_response(data=data, status_code=exc.status_code)
+        elif isinstance(exc, IntegrityError):
+            data = self.add_error(_('Insert failed, the reason may be foreign key constraints'))
+            error_response = self.write_response(data=data, status_code=status.HTTP_400_BAD_REQUEST)
 
         return error_response
 

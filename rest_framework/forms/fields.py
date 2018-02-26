@@ -15,6 +15,7 @@ from decimal import Decimal, DecimalException
 from rest_framework.conf import settings
 from rest_framework.core.translation import gettext as _
 from rest_framework.core import validators
+from rest_framework.forms.formsets import formset_factory
 from rest_framework.utils import functional
 from rest_framework.utils.cached_property import cached_property
 from rest_framework.utils.lazy import lazy
@@ -32,7 +33,7 @@ __all__ = (
     'BooleanField', 'NullBooleanField',
     'ChoiceField', 'MultipleChoiceField', 'MultiValueField', "ListField", 'DictField',
     'IPAddressField', 'UUIDField', 'PasswordField', 'IdentifierField',
-    "BoundField"
+    "BoundField", "FormModelField"
 )
 
 rest_log = logging.getLogger("tornado.rest_framework")
@@ -1108,3 +1109,46 @@ class BoundField(object):
         if isinstance(data, (datetime.datetime, datetime.time)):
             data = data.replace(microsecond=0)
         return data
+
+
+class FormModelField(Field):
+    default_error_messages = {
+        'type_error': _('Expected a list or dictionary of items but got type "%(input_type)s"'),
+        'empty': _('This value not be empty')
+    }
+
+    def __init__(self, form, many=True, allow_empty=False, *args, **kwargs):
+        self.form_class = formset_factory(form)
+        self.many = many
+        self.allow_empty = allow_empty
+        super(FormModelField, self).__init__(*args, **kwargs)
+
+    def validate(self, value):
+        pass
+
+    async def clean(self, value):
+        if value is empty:
+            value = [] if self.many else {}
+
+        elif not isinstance(value, (dict, list)):
+            raise ValidationError(
+                self.error_messages['type_error'],
+                code='type_error',
+                params=dict(input_type=type(value).__name__)
+            )
+
+        if not self.allow_empty and len(value) == 0:
+            raise ValidationError(self.error_messages['empty'], code='empty')
+
+        if isinstance(value, dict):
+            value = [value]
+
+        form_cls = self.form_class(data=value)
+        is_valid = await form_cls.is_valid()
+
+        if is_valid:
+            result = await form_cls.cleaned_data
+            return result if self.many else result[0]
+        raise ValidationError(await form_cls.errors)
+
+

@@ -35,8 +35,10 @@ class BaseFilterBackend(object):
         query_model_fields = {f.name: f for f in queryset.model_class._meta.sorted_fields}
         for join_models in queryset._joins.values():
             for jm in join_models:
-                for f in jm.dest._meta.sorted_fields:
-                    query_model_fields[f.name] = f
+                dest_meta = jm.dest._meta
+                dest_name = dest_meta.name
+                for f in dest_meta.sorted_fields:
+                    query_model_fields["%s.%s" % (dest_name, f.name)] = f
 
         return query_model_fields
 
@@ -155,7 +157,7 @@ class OrderingFilter(BaseFilterBackend):
                 else:
                     item = "{prefix}{model_name}.{field_name}".format(
                         prefix=prefix,
-                        model_name=item.model_class.__name__.lower(),
+                        model_name=item.model_class._meta.name,
                         field_name=item.name
                     )
 

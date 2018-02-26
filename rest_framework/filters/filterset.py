@@ -87,7 +87,7 @@ class BaseFilterSet(object):
         if queryset is None:
             queryset = self._meta.model.select().all()
 
-        model = queryset.model_class
+        # model = queryset.model_class
 
         self.data = data or {}
         self.queryset = queryset
@@ -149,7 +149,6 @@ class BaseFilterSet(object):
             field_name = filter_cls.field_name
             self.form_field_filter_map.setdefault(field_name, []).append(filter_cls)
             from_fields[field_name] = filter_cls.field
-
         return type(str('%sForm' % self.__class__.__name__), (self._meta.form,), from_fields)
 
     @property
