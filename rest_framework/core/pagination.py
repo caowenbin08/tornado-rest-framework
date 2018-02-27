@@ -82,8 +82,8 @@ class Paginator(object):
         """
         总页数
         """
-        # if self.count == 0:
-        #     return 0
+        if self.count == 0:
+            return 0
         hits = max(1, self.count - self.orphans)
         return int(ceil(hits / float(self.page_size)))
 
