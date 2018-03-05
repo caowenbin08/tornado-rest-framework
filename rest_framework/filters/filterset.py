@@ -87,7 +87,7 @@ class BaseFilterSet(object):
         if queryset is None:
             queryset = self._meta.model.select().all()
 
-        # model = queryset.model_class
+        model = queryset.model_class
 
         self.data = data or {}
         self.queryset = queryset
@@ -98,9 +98,9 @@ class BaseFilterSet(object):
         self.form_field_filter_map = {}
 
         # propagate the model and filterset to the filters
-        # for filter_ in self.filters.values():
-        #     filter_.model = model
-        #     filter_.parent = self
+        for filter_ in self.filters.values():
+            filter_.model = model
+            filter_.parent = self
 
     async def is_valid(self):
         """

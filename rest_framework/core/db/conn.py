@@ -72,7 +72,8 @@ class ConnectionHandler(object):
 
     def __getitem__(self, alias):
         if hasattr(self._connections, alias):
-            return getattr(self._connections, alias)
+            conn = getattr(self._connections, alias)
+            return conn
 
         self.ensure_defaults(alias)
         db = self.databases[alias]
