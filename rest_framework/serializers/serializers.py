@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import asyncio
 import copy
 import inspect
 from collections import OrderedDict
@@ -48,9 +49,9 @@ class BaseSerializer(Field):
         return list_serializer_class(*args, **list_kwargs)
 
     @property
-    def data(self):
+    async def data(self):
         if self._data is None:
-            self._data = self.to_representation(self.instance)
+            self._data = await self.to_representation(self.instance)
         return self._data
 
     @property
@@ -63,13 +64,17 @@ class BaseSerializer(Field):
                 self._fields[key] = field
         return self._fields
 
-    def to_representation(self, instance):
+    async def to_representation(self, instance):
         ret = OrderedDict()
         for field_name, field in self.fields.items():
             attribute = field.get_attribute(instance)
             check_for_none = attribute.pk if isinstance(attribute, PKOnlyObject) else attribute
             attr_data = None if check_for_none is None else field.to_representation(attribute)
+            if asyncio.iscoroutine(attr_data):
+                attr_data = await attr_data
             attr_data = self.clean_data(field_name, attr_data)
+            if asyncio.iscoroutine(attr_data):
+                attr_data = await attr_data
             ret[field_name] = attr_data
 
         return ret
@@ -129,15 +134,15 @@ class ListSerializer(BaseSerializer):
         super(ListSerializer, self).__init__(*args, **kwargs)
         self.child.bind(field_name='', parent=self)
 
-    def to_representation(self, data):
+    async def to_representation(self, data):
         """
         List of object instances -> List of dicts of primitive datatypes.
         """
-        return [self.child.to_representation(item) for item in data]
+        return [await self.child.to_representation(item) for item in data]
 
     @property
-    def data(self):
-        ret = super(ListSerializer, self).data
+    async def data(self):
+        ret = await super(ListSerializer, self).data
         return ret
 
 

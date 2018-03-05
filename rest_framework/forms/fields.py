@@ -21,7 +21,7 @@ from rest_framework.utils.cached_property import cached_property
 from rest_framework.utils.lazy import lazy
 from rest_framework.utils.transcoder import force_text
 from rest_framework.core.safe import hashers
-from rest_framework.core.exceptions import ValidationError, ErrorList
+from rest_framework.core.exceptions import ValidationError
 from rest_framework.utils.constants import EMPTY_VALUES, FILE_INPUT_CONTRADICTION, empty
 
 __author__ = 'caowenbin'
@@ -1127,6 +1127,9 @@ class FormModelField(Field):
         pass
 
     async def clean(self, value):
+        if self.required and value is empty:
+            raise ValidationError(self.error_messages['required'], code='required')
+
         if value is empty:
             value = [] if self.many else {}
 
@@ -1137,8 +1140,12 @@ class FormModelField(Field):
                 params=dict(input_type=type(value).__name__)
             )
 
-        if not self.allow_empty and len(value) == 0:
-            raise ValidationError(self.error_messages['empty'], code='empty')
+        form_data_size = len(value)
+        if self.allow_empty and form_data_size == 0:
+            return [] if self.many else {}
+
+        # elif form_data_size == 0:
+        #     raise ValidationError(self.error_messages['empty'], code='empty')
 
         if isinstance(value, dict):
             value = [value]
@@ -1149,6 +1156,8 @@ class FormModelField(Field):
         if is_valid:
             result = await form_cls.cleaned_data
             return result if self.many else result[0]
-        raise ValidationError(await form_cls.errors)
+
+        errors = await form_cls.errors
+        raise ValidationError(errors)
 
 

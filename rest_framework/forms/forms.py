@@ -3,7 +3,8 @@ import asyncio
 import copy
 from collections import OrderedDict
 from rest_framework.conf import settings
-from rest_framework.core.exceptions import ValidationError, ErrorDict, ErrorList, SkipFieldError
+from rest_framework.core.exceptions import ValidationError, SkipFieldError, \
+    get_full_details
 from rest_framework.forms.fields import Field, FileField
 from rest_framework.utils.cached_property import cached_property
 from rest_framework.utils.functional import set_value
@@ -115,12 +116,15 @@ class BaseForm(object):
 
     @property
     async def errors(self):
-        """
-        Returns an ErrorDict for the data provided for the form
-        """
         if self._errors is None:
             await self.full_clean()
-        return self._errors
+        return get_full_details(self._errors)
+
+    @property
+    async def part_errors(self):
+        if self._errors is None:
+            await self.full_clean()
+        return {f: v for f, v in self._errors.items()}
 
     async def is_valid(self):
         """
@@ -129,37 +133,12 @@ class BaseForm(object):
         """
         return self.is_bound and not await self.errors
 
-    def add_error(self, field, error):
-        if not isinstance(error, ValidationError):
-            error = ValidationError(error)
-
-        if hasattr(error, 'error_dict'):
-            if field is not None:
-                raise TypeError(
-                    "The argument `field` must be `None` when the `error` "
-                    "argument contains errors for multiple fields."
-                )
-            else:
-                error = error.error_dict
-        else:
-            error = {field or settings.NON_FIELD_ERRORS: error.error_list}
-
-        for field, error_list in error.items():
-            if field not in self._errors:
-                if field != settings.NON_FIELD_ERRORS and field not in self.fields:
-                    raise ValueError("'%s' has no field named '%s'." % (self.__class__.__name__, field))
-                self._errors[field] = ErrorList()
-
-            self._errors[field].extend(error_list)
-            if field in self._cleaned_data:
-                del self._cleaned_data[field]
-
     async def full_clean(self):
         """
         Cleans all of self.data and populates self._errors and
         self._cleaned_data.
         """
-        self._errors = ErrorDict()
+        self._errors = {}
         if not self.is_bound:
             return
 
@@ -170,10 +149,15 @@ class BaseForm(object):
             return
         try:
             await self._clean_fields()
+        except ValidationError as e:
+            self._errors = e.detail
+            return
+
+        try:
             await self._clean_form()
             await self._clean_validators()
         except ValidationError as e:
-            self.add_error(None, e)
+            self._errors[settings.NON_FIELD_ERRORS] = e.detail
 
     async def _clean_fields(self):
         field_errors = {}
@@ -207,7 +191,7 @@ class BaseForm(object):
                 set_value(self._cleaned_data, field.source_attrs, value)
 
             except ValidationError as e:
-                field_errors[name] = e
+                field_errors[name] = e.detail
                 has_error = True
             except SkipFieldError:
                 continue
@@ -216,17 +200,12 @@ class BaseForm(object):
             raise ValidationError(field_errors)
 
     async def _clean_form(self):
-        try:
+        cleaned_data = self.clean()
+        if asyncio.iscoroutine(cleaned_data):
+            cleaned_data = await cleaned_data
 
-            cleaned_data = self.clean()
-            if asyncio.iscoroutine(cleaned_data):
-                cleaned_data = await cleaned_data
-
-        except ValidationError as e:
-            self.add_error(None, e)
-        else:
-            if cleaned_data is not None:
-                self._cleaned_data = cleaned_data
+        if cleaned_data is not None:
+            self._cleaned_data = cleaned_data
 
     @property
     def validators(self):

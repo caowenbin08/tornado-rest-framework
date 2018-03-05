@@ -36,7 +36,7 @@ class CreateModelMixin(object):
             if self.need_obj_serializer:
                 self.create_serializer(form)
                 serializer = self.get_serializer(instance=instance)
-                result = serializer.data
+                result = await serializer.data
             else:
                 pk = instance._meta.primary_key.name
                 result = {"{}".format(pk): getattr(instance, pk, None)}
@@ -72,11 +72,11 @@ class ListModelMixin(object):
         page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
-            return self.write_paginated_response(serializer.data)
+            return self.write_paginated_response(await serializer.data)
 
         serializer = self.get_serializer(queryset, many=True)
 
-        return self.write_response(serializer.data)
+        return self.write_response(await serializer.data)
 
 
 class RetrieveModelMixin(object):
@@ -89,7 +89,7 @@ class RetrieveModelMixin(object):
             instance = await instance
 
         serializer = self.get_serializer(instance=instance)
-        return self.write_response(serializer.data)
+        return self.write_response(await serializer.data)
 
 
 class UpdateModelMixin(object):
@@ -104,7 +104,7 @@ class UpdateModelMixin(object):
             if self.need_obj_serializer:
                 self.create_serializer(form)
                 serializer = self.get_serializer(instance=instance)
-                result = serializer.data
+                result = await serializer.data
             else:
                 pk = instance._meta.primary_key.name
                 result = {"{}".format(pk): getattr(instance, pk, None)}

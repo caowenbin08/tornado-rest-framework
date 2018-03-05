@@ -13,7 +13,7 @@ from tornado.web import RequestHandler, HTTPError
 from rest_framework.core import exceptions
 from rest_framework.core import message
 from rest_framework.core.track import trackers
-from rest_framework.core.exceptions import APIException, ValidationError, ErrorDict, ErrorList
+from rest_framework.core.exceptions import APIException, ValidationError, ErrorDetail
 from rest_framework.core.translation import locale
 from rest_framework.lib.peewee import IntegrityError
 from rest_framework.views import mixins
@@ -240,30 +240,6 @@ class BaseAPIHandler(RequestHandler, BabelTranslatorMixin):
         self.finalize_response(response)
         self.finish()
 
-    @staticmethod
-    def add_error(error, field=None):
-        if not isinstance(error, ValidationError):
-            error = ValidationError(error)
-
-        if hasattr(error, 'error_dict'):
-            if field is not None:
-                raise TypeError(
-                    "The argument `field` must be `None` when the `error` "
-                    "argument contains errors for multiple fields."
-                )
-            else:
-                error = error.error_dict
-        else:
-            error = {field or settings.NON_FIELD_ERRORS: error.error_list}
-
-        _errors = ErrorDict()
-        for field, error_list in error.items():
-            if field not in _errors:
-                _errors[field] = ErrorList()
-
-            _errors[field].extend(error_list)
-        return _errors
-
     def handle_exception(self, exc):
         """
         统一异常处理
@@ -271,23 +247,35 @@ class BaseAPIHandler(RequestHandler, BabelTranslatorMixin):
         :return:
         """
         error_response = None
-        if isinstance(exc, exceptions.APIException):
-            data = self.add_error(exc.detail)
-            error_response = self.write_response(data=data, status_code=exc.status_code)
-        elif isinstance(exc, exceptions.ValidationError):
-            data = self.add_error(exc)
-            error_response = self.write_response(data=data, status_code=status.HTTP_400_BAD_REQUEST)
+        if isinstance(exc, (exceptions.APIException, exceptions.ValidationError)):
+            error_response = self.write_response(data=exc.detail, status_code=exc.status_code)
 
         elif isinstance(exc, HTTPError):
             status_code = exc.status_code
             if status_code == status.HTTP_405_METHOD_NOT_ALLOWED:
-                data = self.add_error(_('The request method does not exist'))
+                error_detail = ErrorDetail(
+                    _('The request method does not exist'), code="method_not_allowed"
+                )
             else:
-                data = self.add_error(_('Http Error'))
-            error_response = self.write_response(data=data, status_code=exc.status_code)
+                error_detail = ErrorDetail(
+                    "%s. Reason: %s " % (_('Http Error'), exc.reason),
+                    code="http_error"
+                )
+
+            error_response = self.write_response(
+                data={settings.NON_FIELD_ERRORS: error_detail},
+                status_code=exc.status_code
+            )
+
         elif isinstance(exc, IntegrityError):
-            data = self.add_error(_('Insert failed, the reason may be foreign key constraints'))
-            error_response = self.write_response(data=data, status_code=status.HTTP_400_BAD_REQUEST)
+            error_detail = ErrorDetail(
+                _('Insert failed, the reason may be foreign key constraints'),
+                code="foreign_error"
+            )
+            error_response = self.write_response(
+                data={settings.NON_FIELD_ERRORS: error_detail},
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
 
         return error_response
 

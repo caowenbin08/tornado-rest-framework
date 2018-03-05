@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-from rest_framework.core.exceptions import ErrorList
+# from rest_framework.core.exceptions import ErrorList, ErrorDict
+from rest_framework.conf import settings
 from rest_framework.core.exceptions import ValidationError
 from rest_framework.utils.cached_property import cached_property
 from rest_framework.core.translation import gettext as _
@@ -97,37 +98,35 @@ class BaseFormSet(object):
         Cleans all of self.data and populates self._errors and
         self._non_form_errors.
         """
-        self._errors = ErrorList()
+        self._errors = {}
+
         if not self.is_bound:
             return
 
-        form_errors = []
         for i in range(0, self.total_form_count):
             form = self.forms[i]
-            form_error = await form.errors
+            form_error = await form.part_errors
             if form_error:
-                form_errors.append({"Form-%d" % (i+1): form_error.as_data()})
-
-        if form_errors:
-            self._errors = ErrorList(form_errors)
+                for k, v in form_error.items():
+                    self._errors["%s-%d" % (k, i+1)] = v
 
         try:
             if self.max_num is not None and self.total_form_count > self.max_num:
                 raise ValidationError(
-                    message=_("Please submit %d or fewer forms"),
+                    detail=_("Please submit %d or fewer forms"),
                     code='too_many_forms',
                     params=self.max_num
                 )
             if self.min_num is not None and self.total_form_count < self.min_num:
                 raise ValidationError(
-                    message=_("Please submit %d or more forms"),
+                    detail=_("Please submit %d or more forms"),
                     code='too_few_forms',
                     params=self.min_num
                 )
 
             self.clean()
         except ValidationError as e:
-            self._errors = ErrorList(e.error_list)
+            self._errors[settings.NON_FIELD_ERRORS] = e.detail
 
     def clean(self):
         """

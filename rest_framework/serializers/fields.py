@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import asyncio
+
 import pytz
 import copy
 import inspect
@@ -365,8 +367,8 @@ class SerializerMethodField(Field):
 
     def to_representation(self, value):
         method = getattr(self.parent, self.method_name)
+        print("---methodmethod---", method)
         return method(value)
-
 
 MANY_RELATION_KWARGS = ('verbose_name', 'source')
 
