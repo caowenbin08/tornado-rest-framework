@@ -126,7 +126,6 @@ class Filter(object):
 
         if self.distinct:
             qs = qs.distinct()
-
         qs = self.get_method(qs)(**{'%s__%s' % (self.field_name, lookup): value})
         return qs
 

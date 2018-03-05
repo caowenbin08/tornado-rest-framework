@@ -228,8 +228,8 @@ DJANGO_MAP = {
     'regexp': (OP.REGEXP,),
     # 补充
     "exact": (OP.EQ,),  # 精确等于，忽略大小写
-    "contains": (OP.LIKE,),   # 包含 like '%aaa%'
-    "icontains": (OP.ILIKE,),  # 包含 忽略大小写 ilike '%aaa%'
+    "contains": (OP.LIKE, '%%%s%%'),   # 包含 like '%aaa%'
+    "icontains": (OP.ILIKE, '%%%s%%'),  # 包含 忽略大小写 ilike '%aaa%'
     "startswith": (OP.LIKE, '%s%%'),  # 以...开头
     "istartswith": (OP.ILIKE, '%s%%'),  # 以...开头 忽略大小写
     "endswith": (OP.LIKE, '%%%s'),  # 以...结尾
