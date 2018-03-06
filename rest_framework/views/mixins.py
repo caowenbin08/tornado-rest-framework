@@ -68,7 +68,6 @@ class ListModelMixin(object):
     """
     async def list(self, *args, **kwargs):
         queryset = await self.filter_queryset(self.get_queryset())
-
         page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = self.get_serializer(page, many=True)

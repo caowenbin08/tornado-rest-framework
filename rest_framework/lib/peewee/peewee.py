@@ -3247,6 +3247,13 @@ class SelectQuery(Query):
         else:
             return self._qr
 
+    def real(self):
+        """
+        实时查询，去掉脏缓存
+        :return:
+        """
+        self._dirty = True
+        
     def __iter__(self):
         return iter(self.execute())
 
