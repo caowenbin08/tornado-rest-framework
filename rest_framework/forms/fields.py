@@ -139,7 +139,6 @@ class Field(object):
     def run_validators(self, value):
         if value in self.empty_values:
             return
-
         for v in self.validators:
             if hasattr(v, 'set_context'):
                 v.set_context(self)
@@ -147,9 +146,11 @@ class Field(object):
             try:
                 v(value)
             except ValidationError as e:
-                # if hasattr(e, 'code') and e.code in self.error_messages:
-                #     e.message = self.error_messages[e.code]
-                raise ValidationError(e)
+                old_error_code = e.code if hasattr(e, 'code') else None
+
+                if old_error_code in self.error_messages:
+                    e.message = self.error_messages[old_error_code]
+                raise ValidationError(e, code=old_error_code)
 
     def get_default(self):
         if callable(self.default):

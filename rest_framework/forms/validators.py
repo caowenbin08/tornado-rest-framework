@@ -11,7 +11,7 @@ class UniqueValidator(object):
     model模型字段设置了unique=True，进行唯一索引检查
     """
 
-    message = _("This field (%(field_name)s) value must be unique")
+    message = _("This field (`%(field_name)s`) value must be unique")
 
     def __init__(self, queryset, message=None, lookup='exact'):
         self.queryset = queryset

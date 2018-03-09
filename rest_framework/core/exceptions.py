@@ -151,12 +151,11 @@ class ValidationError(APIException):
     def __init__(self, detail, code=None, params=None):
         if detail is None:
             detail = self.default_detail
-        if code is None:
-            code = self.default_code
+        self.code = self.default_code if code is None else code
         if params is not None:
             detail %= params
 
-        self.detail = _get_error_details(detail, code)
+        self.detail = _get_error_details(detail, self.code)
 
     def __str__(self):
         return str(self.detail)
