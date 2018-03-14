@@ -26,11 +26,11 @@ class FilterMethod(object):
     def __init__(self, filter_instance):
         self.f = filter_instance
 
-    def __call__(self, qs, value):
+    async def __call__(self, qs, value):
         if value in EMPTY_VALUES:
             return qs
 
-        return self.method(qs, self.f.field_name, value)
+        return await self.method(qs, self.f.field_name, value)
 
     @property
     def method(self):

@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import asyncio
 import copy
 from collections import OrderedDict
 
@@ -127,6 +128,8 @@ class BaseFilterSet(object):
 
             for filter_cls in self.form_field_filter_map[name]:
                 queryset = filter_cls.filter(queryset, value)
+                if asyncio.iscoroutine(queryset):
+                    queryset = await queryset
         return queryset
 
     @property
