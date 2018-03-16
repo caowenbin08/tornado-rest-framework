@@ -401,10 +401,9 @@ get_format_lazy = lazy(get_format, str, list, tuple)
 def to_utc_timezone(value):
     try:
         from_zone = pytz.timezone(settings.SHOW_TIME_ZONE)
+        value = from_zone.localize(value)
         to_zone = pytz.timezone(settings.TIME_ZONE)
-        value = value.replace(tzinfo=from_zone)
         value = value.astimezone(to_zone)
-
         return value
     except Exception:
         message = _(
