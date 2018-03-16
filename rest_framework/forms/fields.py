@@ -53,7 +53,7 @@ class Field(object):
     initial = None
 
     def __init__(self, required=None, verbose_name=None, default=empty, initial=empty, source=None,
-                 error_messages=None, null=False, validators=(), disabled=False):
+                 error_messages=None, null=False, validators=(), disabled=False, *args, **kwargs):
         """
 
         :param required: 默认情况下，每个 Field 类假定该值是必需的，因此如果您传递一个空值 - None 或空字符串（""），
@@ -860,27 +860,28 @@ class MultiValueField(Field):
     多字段组合，例如
     fields=(DateField(), TimeField())
     """
-    default_error_messages = {
-        'invalid': _('Enter a list of values'),
-        'incomplete': _('Enter a complete value'),
-    }
     fields = _UnvalidatedField()
 
     def __init__(self, fields=None, *args, **kwargs):
         self.require_all_fields = kwargs.pop('require_all_fields', True)
+        self.null_all_fields = kwargs.pop('null_all_fields', True)
         fields = (copy.deepcopy(self.fields),) if fields is None else fields if isinstance(
             fields, (tuple, list)) else (fields, )
         self.max_length = kwargs.pop('max_length', None)
         self.min_length = kwargs.pop('min_length', None)
         super(MultiValueField, self).__init__(*args, **kwargs)
-        for f in fields:
+        self.fields = fields
+
+    def bind(self, field_name, parent):
+        super(MultiValueField, self).bind(field_name, parent)
+        for i, f in enumerate(self.fields):
             f.source = None
-            f.bind(field_name='', parent=self)
-            f.error_messages.setdefault('incomplete', self.error_messages['incomplete'])
+            field_name = "%s_%s" % (self.field_name, i) if self.field_name else ""
+            f.bind(field_name=field_name, parent=self)
             if self.require_all_fields:
                 f.required = False
-
-        self.fields = fields
+            if self.null_all_fields:
+                f.null = True
 
     def __deepcopy__(self, memo):
         result = super(MultiValueField, self).__deepcopy__(memo)
@@ -890,7 +891,7 @@ class MultiValueField(Field):
     def validate(self, value):
         pass
 
-    def clean(self, value):
+    def clean(self, form_data, form_files):
         """
         Validates every value in the given list. A value is validated against
         the corresponding Field in self.fields.
@@ -900,37 +901,23 @@ class MultiValueField(Field):
         DateField.clean(value[0]) and TimeField.clean(value[1]).
         """
         clean_data = []
-        errors = []
-        if not value or isinstance(value, (list, tuple)):
-            if not value or not [v for v in value if v not in self.empty_values]:
-                if self.required:
-                    raise ValidationError(self.error_messages['required'], code='required')
-                else:
-                    return self.compress([])
-        else:
-            raise ValidationError(self.error_messages['invalid'], code='invalid')
+        errors = {}
 
-        for i, field in enumerate(self.fields):
+        for field in self.fields:
+            field_value = field.value_from_datadict(form_data, form_files)
             try:
-                field_value = value[i]
-            except IndexError:
-                field_value = None
-
-            if field_value in self.empty_values:
-                if self.require_all_fields:
-                    if self.required:
-                        raise ValidationError(self.error_messages['required'], code='required')
-
-                elif field.required:
-                    if field.error_messages['incomplete'] not in errors:
-                        errors.append(field.error_messages['incomplete'])
+                field_value = field.clean(field_value)
+                if field_value is empty:
                     continue
-            try:
-                clean_data.append(field.clean(field_value))
+                clean_data.append(field_value)
             except ValidationError as e:
-                errors.extend(m for m in e.error_list if m not in errors)
+                errors[field.field_name] = e.detail
+
         if errors:
             raise ValidationError(errors)
+
+        if self.required and not clean_data:
+            raise ValidationError(self.error_messages['required'], code='required')
 
         out = self.compress(clean_data)
         self.validate(out)

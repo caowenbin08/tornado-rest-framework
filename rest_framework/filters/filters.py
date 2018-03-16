@@ -1,7 +1,13 @@
 # -*- coding: utf-8 -*-
+import operator
+from functools import reduce
+
+from rest_framework.core.exceptions import ImproperlyConfigured
 from rest_framework.forms import fields
+from rest_framework.core.db import models
 from rest_framework.utils.constants import QUERY_TERMS, EMPTY_VALUES
-from rest_framework.filters.fields import Lookup
+from rest_framework.filters.fields import Lookup, RangeField, DateRangeField, DateTimeRangeField, \
+    TimeRangeField
 
 __all__ = [
     'Filter',
@@ -11,7 +17,10 @@ __all__ = [
     'TimeFilter',
     'DateTimeFilter',
     'NumberFilter',
-    "ChoiceFilter"
+    "ChoiceFilter",
+    "DateRangeFilter",
+    "DateTimeRangeFilter",
+    "TimeRangeFilter"
 ]
 
 
@@ -63,14 +72,14 @@ class Filter(object):
     field_class = fields.Field
 
     def __init__(self, field_name=None, lookup_expr='exact', method=None, distinct=False,
-                 exclude=False, **kwargs):
+                 exclude=False, source=None, **kwargs):
         """
 
         :param field_name: 对应model的字段名
-        :param lookup_expr:
-        :param method:
-        :param distinct:
-        :param exclude:
+        :param lookup_expr: 匹配标识
+        :param method: 自定义过滤方法
+        :param distinct: 是否过滤重复
+        :param exclude: 是否启动否查询
         :param kwargs:
         """
         self.field_name = field_name
@@ -79,6 +88,7 @@ class Filter(object):
         self.method = method
         self.distinct = distinct
         self.exclude = exclude
+        self.source = source
 
         self.extra = kwargs
         self.extra.setdefault('required', False)
@@ -110,9 +120,34 @@ class Filter(object):
     def field(self):
         if not hasattr(self, '_field'):
             field_kwargs = self.extra.copy()
+            # field_kwargs["field_name"] = self.field_name
             self._field = self.field_class(**field_kwargs)
 
         return self._field
+
+    @staticmethod
+    def get_join_fields(qs):
+        """
+        获得进行查询的model对象的join对象字段
+        :return:
+        """
+        join_model_fields = {}
+        for join_models in qs._joins.values():
+            for jm in join_models:
+                dest_meta = jm.dest._meta
+                dest_name = dest_meta.name  # model名
+                for f in dest_meta.sorted_fields:
+                    join_model_fields["%s.%s" % (dest_name, f.name)] = f
+
+        return join_model_fields
+
+    @staticmethod
+    def gen_qs_expression(field_name, lookup, value):
+        op_group = models.DJANGO_MAP[lookup]
+        op, value = (op_group[0], op_group[1] % value) \
+            if len(op_group) == 2 else (op_group[0], value)
+        expression = [models.Expression(field_name, op, value)]
+        return reduce(operator.and_, expression)
 
     def filter(self, qs, value):
         if isinstance(value, Lookup):
@@ -126,7 +161,23 @@ class Filter(object):
 
         if self.distinct:
             qs = qs.distinct()
-        qs = self.get_method(qs)(**{'%s__%s' % (self.field_name, lookup): value})
+
+        if self.source is None:
+            field_name = self.field_name
+        else:
+            field_name = self.source
+
+        if isinstance(field_name, models.Field):
+            expression = self.gen_qs_expression(field_name, lookup, value)
+            qs = self.get_method(qs)(expression)
+        elif isinstance(field_name, str) and "." in field_name:
+            join_fields = self.get_join_fields(qs)
+            field_name = join_fields[field_name.lower()]
+            expression = self.gen_qs_expression(field_name, lookup, value)
+            qs = self.get_method(qs)(expression)
+        else:
+            qs = self.get_method(qs)(**{'%s__%s' % (field_name, lookup): value})
+
         return qs
 
 
@@ -172,5 +223,89 @@ class ChoiceFilter(Filter):
         if value != self.null_value:
             return super(ChoiceFilter, self).filter(qs, value)
 
-        qs = self.get_method(qs)(**{'%s__%s' % (self.field_name, self.lookup_expr): None})
+        if isinstance(value, Lookup):
+            lookup = str(value.lookup_type)
+            value = value.value
+        else:
+            lookup = self.lookup_expr
+
+        if self.source is None:
+            field_name = self.field_name
+        else:
+            field_name = self.source
+
+        if isinstance(field_name, models.Field):
+            expression = self.gen_qs_expression(field_name, lookup, value)
+            qs = self.get_method(qs)(expression)
+        elif isinstance(field_name, str) and "." in field_name:
+            join_fields = self.get_join_fields(qs)
+            field_name = join_fields[field_name.lower()]
+            expression = self.gen_qs_expression(field_name, lookup, value)
+            qs = self.get_method(qs)(expression)
+        else:
+            qs = self.get_method(qs)(**{'%s__%s' % (field_name, lookup): None})
+
         return qs.distinct() if self.distinct else qs
+
+
+class RangeFilter(Filter):
+    field_class = RangeField
+
+    def filter(self, qs, value):
+        if self.distinct:
+            qs = qs.distinct()
+
+        if not value or (value.start is None and value.stop is None):
+            return qs
+
+        if self.source is None:
+            field_name = self.field_name
+        else:
+            field_name = self.source
+
+        if isinstance(field_name, models.Field):
+            field = field_name
+        elif isinstance(field_name, str) and "." in field_name:
+            join_fields = self.get_join_fields(qs)
+            field = join_fields[field_name.lower()]
+        else:
+            field = getattr(qs.model_class, field_name)
+
+        if field is None:
+            error_msg = "字段{field_name}无法在queryset.model_class或queryset.join的model找到".format(
+                field_name=field_name
+            )
+            raise ImproperlyConfigured(error_msg)
+
+        expressions = None
+        if value.start is not None and value.stop is not None:
+            expressions = [models.Expression(
+                field,
+                models.OP.BETWEEN,
+                models.Clause(value.start,  models.R('AND'), value.stop)
+            )]
+        else:
+            if value.start is not None:
+                expressions = [models.Expression(field, models.OP.GTE, value.start)]
+            if value.stop is not None:
+                expressions = [models.Expression(field, models.OP.LTE, value.stop)]
+
+        if expressions is None:
+            return qs
+
+        qs_expressions = reduce(operator.and_, expressions)
+        qs = self.get_method(qs)(qs_expressions)
+        return qs
+
+
+class DateRangeFilter(RangeFilter):
+    field_class = DateRangeField
+
+
+class DateTimeRangeFilter(RangeFilter):
+    field_class = DateTimeRangeField
+
+
+class TimeRangeFilter(RangeFilter):
+    field_class = TimeRangeField
+

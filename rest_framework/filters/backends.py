@@ -36,7 +36,7 @@ class BaseFilterBackend(object):
         for join_models in queryset._joins.values():
             for jm in join_models:
                 dest_meta = jm.dest._meta
-                dest_name = dest_meta.name
+                dest_name = dest_meta.name  # model名
                 for f in dest_meta.sorted_fields:
                     query_model_fields["%s.%s" % (dest_name, f.name)] = f
 

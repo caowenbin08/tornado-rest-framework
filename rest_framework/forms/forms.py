@@ -5,7 +5,7 @@ from collections import OrderedDict
 from rest_framework.conf import settings
 from rest_framework.core.exceptions import ValidationError, SkipFieldError, \
     get_full_details
-from rest_framework.forms.fields import Field, FileField
+from rest_framework.forms.fields import Field, FileField, MultiValueField
 from rest_framework.utils.cached_property import cached_property
 from rest_framework.utils.functional import set_value
 from rest_framework.utils.constants import empty
@@ -157,7 +157,8 @@ class BaseForm(object):
             await self._clean_form()
             await self._clean_validators()
         except ValidationError as e:
-            self._errors[settings.NON_FIELD_ERRORS] = e.detail
+            field = e.field
+            self._errors[settings.NON_FIELD_ERRORS if field is None else error_field] = e.detail
 
     async def _clean_fields(self):
         field_errors = {}
@@ -174,6 +175,8 @@ class BaseForm(object):
                 if isinstance(field, FileField):
                     initial = self.get_initial_for_field(field, name)
                     value = field.clean(value, initial)
+                elif isinstance(field, MultiValueField):
+                    value = field.clean(self.data, self.files)
                 else:
                     value = field.clean(value)
 

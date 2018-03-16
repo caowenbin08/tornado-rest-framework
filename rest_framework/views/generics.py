@@ -76,7 +76,7 @@ class BaseAPIHandler(RequestHandler, BabelTranslatorMixin):
     access_tracker_event_name = "app.access"
     exec_tracker_event_name = "app.exceptions"
     # 是否记录正常请求日志, False不记录 True 记录
-    is_write_access_tracker = True
+    is_write_access_tracker = False
 
     def __init__(self, application, request, **kwargs):
         self.request_data = None
@@ -108,8 +108,8 @@ class BaseAPIHandler(RequestHandler, BabelTranslatorMixin):
         :return:
         """
         query_arguments = self.request.query_arguments
-        return {k: force_text(v) if len(v) > 1 else force_text(v[-1])
-                for k, v in query_arguments.items() if v}
+        return {k: [force_text(v) for v in vs] if len(vs) > 1 else force_text(vs[-1])
+                for k, vs in query_arguments.items() if vs}
 
     def _load_data_and_files(self):
         """
@@ -288,6 +288,7 @@ class BaseAPIHandler(RequestHandler, BabelTranslatorMixin):
         log_context["remote_ip"] = self.request.remote_ip
 
         if status.is_server_error(status_code):
+            log_context["reason"] = traceback.format_exc()
             with trackers[self.tracker_label].context(self.exec_tracker_event_name, log_context):
                 trackers[self.tracker_label].emit(
                     self.exec_tracker_event_name,

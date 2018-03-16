@@ -148,10 +148,11 @@ class ValidationError(APIException):
     default_detail = _('Invalid input.')
     default_code = 'invalid'
 
-    def __init__(self, detail, code=None, params=None):
+    def __init__(self, detail, code=None, params=None, field=None):
         if detail is None:
             detail = self.default_detail
         self.code = self.default_code if code is None else code
+        self.field = field
         if params is not None:
             detail %= params
 

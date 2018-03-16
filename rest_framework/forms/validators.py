@@ -89,11 +89,19 @@ class UniqueTogetherValidator(object):
                 "The reason is that (%(field_names)s) constitutes a unique index")
     missing_message = _('This field is required')
 
-    def __init__(self, queryset, fields, message=None):
+    def __init__(self, queryset, fields, message=None, error_field=None):
+        """
+
+        :param queryset:
+        :param fields: 用于检查的字段
+        :param message: 错误信息
+        :param error_field: 错误信息绑定那个字段上，默认取settings.NON_FIELD_ERRORS
+        """
         self.queryset = queryset
         self.fields = fields
         self.message = message or self.message
         self.instance = None
+        self.error_field=error_field
 
     def set_context(self, form):
         """
@@ -144,7 +152,12 @@ class UniqueTogetherValidator(object):
 
         if None not in checked_values and qs_exists(queryset):
             field_names = ', '.join(self.fields)
-            raise ValidationError(self.message, code='unique', params={"field_names": field_names})
+            raise ValidationError(
+                self.message,
+                code='unique',
+                params={"field_names": field_names},
+                field=self.error_field
+            )
 
     def __repr__(self):
         return '<%s(queryset=%s, fields=%s)>' % (
