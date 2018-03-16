@@ -23,7 +23,7 @@ class BaseSerializer(Field):
         self._context = kwargs.pop('context', {})
         kwargs.pop('many', None)
         self._fields = None
-        self._data = None
+        self._serializer_data = None
         super(BaseSerializer, self).__init__(**kwargs)
 
     def __new__(cls, *args, **kwargs):
@@ -45,9 +45,9 @@ class BaseSerializer(Field):
 
     @property
     async def data(self):
-        if self._data is None:
-            self._data = await self.to_representation(self.instance)
-        return self._data
+        if self._serializer_data is None:
+            self._serializer_data = await self.to_representation(self.instance)
+        return self._serializer_data
 
     @property
     def fields(self):
@@ -67,14 +67,17 @@ class BaseSerializer(Field):
             attr_data = None if check_for_none is None else field.to_representation(attribute)
             if asyncio.iscoroutine(attr_data):
                 attr_data = await attr_data
-            attr_data = self.clean_data(field_name, attr_data)
-            if asyncio.iscoroutine(attr_data):
-                attr_data = await attr_data
+
+            attr_data = await self.clean_data(field_name, attr_data)
             ret[field_name] = attr_data
+
+        cleaned_data = await self.clean(ret)
+        if cleaned_data is not None:
+            ret = cleaned_data
 
         return ret
 
-    def clean_data(self, field_name, value):
+    async def clean_data(self, field_name, value):
         """
         处理用户自定义的clean_**函数（**为字段名）
         """
@@ -82,8 +85,13 @@ class BaseSerializer(Field):
         if hasattr(self, clean_method):
             customize_method = getattr(self, clean_method)
             value = customize_method(value)
+            if asyncio.iscoroutine(value):
+                value = await value
 
         return value
+
+    async def clean(self, ret):
+        return ret
 
 
 class DeclarativeFieldsMetaclass(type):
