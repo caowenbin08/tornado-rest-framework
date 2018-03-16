@@ -120,7 +120,6 @@ class Filter(object):
     def field(self):
         if not hasattr(self, '_field'):
             field_kwargs = self.extra.copy()
-            # field_kwargs["field_name"] = self.field_name
             self._field = self.field_class(**field_kwargs)
 
         return self._field

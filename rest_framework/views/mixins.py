@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import asyncio
 from rest_framework import serializers
+from rest_framework.core.exceptions import SkipFilterError
 from rest_framework.core.translation import locale, make_lazy_gettext
 from rest_framework.utils import status
 
@@ -67,7 +68,11 @@ class ListModelMixin(object):
     分页查询列表
     """
     async def list(self, *args, **kwargs):
-        queryset = await self.filter_queryset(self.get_queryset())
+        try:
+            queryset = await self.filter_queryset(self.get_queryset())
+        except SkipFilterError:
+            queryset = []
+
         page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = self.get_serializer(page, many=True)

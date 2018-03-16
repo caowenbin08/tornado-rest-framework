@@ -51,6 +51,13 @@ class SkipFieldError(Exception):
     pass
 
 
+class SkipFilterError(Exception):
+    """
+    可跳过的过滤字段异常
+    """
+    pass
+
+
 def _get_error_details(data, default_code=None):
     """
     Descend into a nested data structure, forcing any

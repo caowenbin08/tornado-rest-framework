@@ -13,7 +13,7 @@ from tornado.web import RequestHandler, HTTPError
 from rest_framework.core import exceptions
 from rest_framework.core import message
 from rest_framework.core.track import trackers
-from rest_framework.core.exceptions import APIException, ValidationError, ErrorDetail
+from rest_framework.core.exceptions import APIException, ErrorDetail, SkipFilterError
 from rest_framework.core.translation import locale
 from rest_framework.lib.peewee import IntegrityError
 from rest_framework.views import mixins
@@ -432,7 +432,15 @@ class GenericAPIHandler(BaseAPIHandler):
         """
         查询单一对象，如果为空抛出404
         """
-        queryset = self.filter_queryset(self.get_queryset())
+        try:
+            queryset = self.filter_queryset(self.get_queryset())
+        except SkipFilterError:
+            raise exceptions.APIException(
+                status_code=404,
+                detail=self.error_msg_404 if self.error_msg_404
+                else _("Resource data does not exist")
+            )
+
         if asyncio.iscoroutine(queryset):
             queryset = await queryset
 
