@@ -3774,7 +3774,9 @@ class Database(object):
         return self._local.closed
 
     def get_cursor(self):
-        return self.get_conn().cursor()
+        conn = self.get_conn()
+        conn.ping()
+        return conn.cursor()
 
     def _close(self, conn):
         conn.close()
