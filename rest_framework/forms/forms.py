@@ -157,8 +157,8 @@ class BaseForm(object):
             await self._clean_form()
             await self._clean_validators()
         except ValidationError as e:
-            field = e.field
-            self._errors[settings.NON_FIELD_ERRORS if field is None else error_field] = e.detail
+            error_field = e.field
+            self._errors[settings.NON_FIELD_ERRORS if error_field is None else error_field] = e.detail
 
     async def _clean_fields(self):
         field_errors = {}

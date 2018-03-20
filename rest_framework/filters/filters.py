@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import asyncio
 import operator
 from functools import reduce
 
@@ -38,8 +39,10 @@ class FilterMethod(object):
     async def __call__(self, qs, value):
         if value in EMPTY_VALUES:
             return qs
-
-        return await self.method(qs, self.f.field_name, value)
+        qs = self.method(qs, self.f.field_name, value)
+        if asyncio.iscoroutine(qs):
+            return await qs
+        return qs
 
     @property
     def method(self):
