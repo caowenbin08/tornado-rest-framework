@@ -3775,7 +3775,8 @@ class Database(object):
 
     def get_cursor(self):
         conn = self.get_conn()
-        conn.ping()
+        if conn._sock is None:
+            conn.ping()
         return conn.cursor()
 
     def _close(self, conn):
