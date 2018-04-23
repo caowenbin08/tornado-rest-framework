@@ -2,7 +2,7 @@
 import re
 import asyncio
 import traceback
-import logging
+import functools
 
 from tornado import gen
 from tornado import httputil
@@ -11,7 +11,6 @@ from tornado.log import app_log, gen_log
 from tornado.web import RequestHandler, HTTPError
 
 from rest_framework.core import exceptions
-from rest_framework.core import message
 from rest_framework.core.track import trackers
 from rest_framework.core.exceptions import APIException, ErrorDetail, SkipFilterError
 from rest_framework.core.translation import locale
@@ -39,8 +38,6 @@ __all__ = [
     'DestroyAPIHandler',
     'UpdateAPIHandler'
 ]
-
-view_log = logging.getLogger("rest_framework.views")
 
 
 def _clean_credentials(credentials):
@@ -80,7 +77,6 @@ class BaseAPIHandler(RequestHandler, BabelTranslatorMixin):
 
     def __init__(self, application, request, **kwargs):
         self.request_data = None
-        message.sub("tornado-rest-framework.app.log", self.write_log)
         super(BaseAPIHandler, self).__init__(application, request, **kwargs)
 
     def data_received(self, chunk):
@@ -315,7 +311,9 @@ class BaseAPIHandler(RequestHandler, BabelTranslatorMixin):
 
         if not isinstance(response, Response):
             raise TypeError("Request return value types must be the Response")
-        message.pub("tornado-rest-framework.app.log", response)
+        print("---sdfdsf---", 333)
+        loop = asyncio.get_event_loop()
+        loop.run_in_executor(None, functools.partial(self.write_log, response,  *args, **kwargs))
         self.set_status(response.status_code)
         self.set_header('Content-Type', response.content_type)
 
