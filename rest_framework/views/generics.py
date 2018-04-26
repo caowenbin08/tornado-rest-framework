@@ -311,7 +311,6 @@ class BaseAPIHandler(RequestHandler, BabelTranslatorMixin):
 
         if not isinstance(response, Response):
             raise TypeError("Request return value types must be the Response")
-        print("---sdfdsf---", 333)
         loop = asyncio.get_event_loop()
         loop.run_in_executor(None, functools.partial(self.write_log, response,  *args, **kwargs))
         self.set_status(response.status_code)

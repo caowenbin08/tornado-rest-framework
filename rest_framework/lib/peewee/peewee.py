@@ -3773,11 +3773,11 @@ class Database(object):
     def is_closed(self):
         return self._local.closed
 
-    def get_cursor(self):
-        conn = self.get_conn()
-        if conn._sock is None:
-            conn.ping()
-        return conn.cursor()
+    # def get_cursor(self):
+    #     conn = self.get_conn()
+    #     if conn._sock is None:
+    #         conn.ping()
+    #     return conn.cursor()
 
     def _close(self, conn):
         conn.close()
@@ -3831,9 +3831,13 @@ class Database(object):
     def execute_sql(self, sql, params=None, require_commit=True):
         logger.debug((sql, params))
         with self.exception_wrapper:
-            cursor = self.get_cursor()
+            conn = self.get_conn()
+
+            # cursor = self.get_cursor()
             try:
+                cursor = conn.cursor()
                 cursor.execute(sql, params or ())
+                cursor.close()
             except Exception:
                 if self.autorollback and self.get_autocommit():
                     self.rollback()
@@ -3841,6 +3845,8 @@ class Database(object):
             else:
                 if require_commit and self.get_autocommit():
                     self.commit()
+            finally:
+                self._close(conn)
         return cursor
 
     def begin(self):
