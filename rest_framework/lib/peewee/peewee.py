@@ -3832,7 +3832,8 @@ class Database(object):
         logger.debug((sql, params))
         with self.exception_wrapper:
             conn = self.get_conn()
-
+            if conn._sock is None:
+                conn.ping()
             # cursor = self.get_cursor()
             try:
                 cursor = conn.cursor()
