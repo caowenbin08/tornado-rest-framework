@@ -262,10 +262,8 @@ class Manager(object):
     def handle(self, prog, args=None):
         self.set_defaults()
         app_parser = self.create_parser(prog)
-
         args = list(args or [])
         app_namespace, remaining_args = app_parser.parse_known_args(args)
-
         # get the handle function and remove it from parsed options
         kwargs = app_namespace.__dict__
         func_stack = kwargs.pop('func_stack', None)

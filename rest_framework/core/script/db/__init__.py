@@ -27,7 +27,7 @@ def get_table_models(module):
 
 
 @MigrateCommand.command
-def init(*args, **kwargs):
+async def init(*args, **kwargs):
     """
     Initialize the table structure
     """
@@ -37,14 +37,14 @@ def init(*args, **kwargs):
         module = import_module(app)
         table_models.extend(get_table_models(module=module))
     table_models = set(table_models)
-    models.create_model_tables(table_models, fail_silently=True)
+    await models.create_model_tables(table_models, fail_silently=True)
     table_name_list = [model.__name__ for model in table_models]
 
     print("Create Table:\n", "\n".join(table_name_list))
 
 
 @MigrateCommand.command
-def clean(*args, **kwargs):
+async def clean(*args, **kwargs):
     """
     Clear all table structure
     """
@@ -54,7 +54,7 @@ def clean(*args, **kwargs):
         module = import_module(app)
         table_models.extend(get_table_models(module=module))
     table_models = set(table_models)
-    models.drop_model_tables(table_models, fail_silently=True)
+    await models.drop_model_tables(table_models, fail_silently=True)
     table_name_list = [model.__name__ for model in table_models]
 
     print("Drop Table:\n", "\n".join(table_name_list))

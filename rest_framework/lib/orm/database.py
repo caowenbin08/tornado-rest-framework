@@ -1,3 +1,5 @@
+import asyncio
+
 from .peewee import Database, ExceptionWrapper
 from .peewee import sort_models_topologically, merge_dict
 from .peewee import OperationalError
@@ -28,7 +30,6 @@ class AsyncConnection:
         self.autorollback = autorollback
         self.db = db
         self.acquirer = None
-        # self.closed = True
         self.conn = None
         self.context_stack = []
         self.transactions = []
@@ -128,7 +129,7 @@ class AsyncDatabase(Database):
         raise NotImplementedError
 
     def __init__(self, database, autocommit=True, fields=None, ops=None, autorollback=False,
-                 **connect_kwargs):
+                 loop=None, **connect_kwargs):
         self.connect_kwargs = {}
         self.closed = True
         self.init(database, **connect_kwargs)
@@ -140,6 +141,15 @@ class AsyncDatabase(Database):
         self.field_overrides = merge_dict(self.field_overrides, fields or {})
         self.op_overrides = merge_dict(self.op_overrides, ops or {})
         self.exception_wrapper = ExceptionWrapper(self.exceptions)
+        self._loop = loop
+        # 用于保持连接
+        self._auto_task = None
+
+    @property
+    def loop(self):
+        if self._loop is None:
+            self._loop = asyncio.get_event_loop()
+        return self._loop
 
     def is_closed(self):
         return self.closed
@@ -158,6 +168,7 @@ class AsyncDatabase(Database):
 
         with self.exception_wrapper:
             if not self.closed and self.pool:
+                await self.close_engine()
                 self.pool.close()
                 self.closed = True
                 await self.pool.wait_closed()
@@ -174,6 +185,21 @@ class AsyncDatabase(Database):
         with self.exception_wrapper:
             self.pool = await self._connect(self.database, **self.connect_kwargs)
             self.closed = False
+            # 启动自动链接
+            await self.init_engine()
+
+    async def init_engine(self):
+        self._auto_task = self.loop.create_task(self.keep_engine())
+
+    async def close_engine(self):
+        self._auto_task.cancel()
+
+    async def keep_engine(self):
+        while 1:
+            async with self.pool.acquire() as conn:
+                await conn.ping()
+
+            await asyncio.sleep(60)
 
     def get_result_wrapper(self, wrapper_type):
         if wrapper_type == RESULTS_NAIVE:
@@ -196,11 +222,6 @@ class AsyncDatabase(Database):
         return Transaction(self.get_conn(), transaction_type)
 
     commit_on_success = property(transaction)
-
-    # def savepoint(self, sid=None):
-    #     if not self.savepoints:
-    #         raise NotImplementedError
-    #     return aio_savepoint(self, sid)
 
     async def create_table(self, model_class, safe=False):
         qc = self.compiler()

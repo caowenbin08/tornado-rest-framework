@@ -103,6 +103,7 @@ class Command(object):
             return
 
         args, varargs, keywords, defaults = inspect.getargspec(func)
+
         if inspect.ismethod(func):
             args = args[1:]
 
@@ -203,7 +204,11 @@ class Command(object):
         return parser
 
     def __call__(self, *args, **kwargs):
-        return self.run(*args, **kwargs)
+        if asyncio.iscoroutinefunction(self.run):
+            loop = asyncio.get_event_loop()
+            return loop.run_until_complete(self.run(*args, **kwargs))
+        else:
+            return self.run(*args, **kwargs)
 
     def run(self):
         raise NotImplementedError
