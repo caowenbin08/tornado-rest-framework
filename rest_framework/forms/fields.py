@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import asyncio
 import inspect
 import re
 import pytz
@@ -24,7 +25,6 @@ from rest_framework.core.safe import hashers
 from rest_framework.core.exceptions import ValidationError
 from rest_framework.utils.constants import EMPTY_VALUES, FILE_INPUT_CONTRADICTION, empty
 
-__author__ = 'caowenbin'
 
 __all__ = (
     'Field', 'CharField', 'IntegerField', 'FloatField', 'DecimalField',
@@ -136,7 +136,7 @@ class Field(object):
         if self.disabled is False and value in self.empty_values and not self.null:
             raise ValidationError(self.error_messages["null"], code="null")
 
-    def run_validators(self, value):
+    async def run_validators(self, value):
         if value in self.empty_values:
             return
         for v in self.validators:
@@ -144,7 +144,9 @@ class Field(object):
                 v.set_context(self)
 
             try:
-                v(value)
+                ok = v(value)
+                if asyncio.iscoroutine(ok):
+                    await ok
             except ValidationError as e:
                 old_error_code = e.code if hasattr(e, 'code') else None
 
@@ -159,7 +161,7 @@ class Field(object):
             return self.default()
         return self.default
 
-    def clean(self, value=empty):
+    async def clean(self, value=empty):
         """
         Validates the given value and returns its "cleaned" value as an
         appropriate Python object.
@@ -173,7 +175,7 @@ class Field(object):
         if value is empty:
             return self.get_default()
         value = self.to_python(value)
-        self.run_validators(value)
+        await self.run_validators(value)
         return value
 
     def bound_data(self, data, initial):
@@ -531,7 +533,7 @@ class FileField(Field):
 
         return data
 
-    def clean(self, data, initial=None):
+    async def clean(self, data, initial=None):
         # If the widget got contradictory inputs, we raise a validation error
         if data is FILE_INPUT_CONTRADICTION:
             raise ValidationError(self.error_messages['contradiction'], code='contradiction')
@@ -810,7 +812,7 @@ class ListField(Field):
     def validate(self, value):
         pass
 
-    def clean(self, value):
+    async def clean(self, value):
         if value is empty:
             value = []
         elif isinstance(value, type('')) or isinstance(value, collections.Mapping)\
@@ -823,7 +825,7 @@ class ListField(Field):
 
         if not self.allow_empty and len(value) == 0:
             raise ValidationError(self.error_messages['empty'], code='empty')
-        return [self.child.clean(item) for item in value]
+        return [await self.child.clean(item) for item in value]
 
 
 class DictField(Field):
@@ -843,7 +845,7 @@ class DictField(Field):
         super(DictField, self).__init__(*args, **kwargs)
         self.child.bind(field_name='', parent=self)
 
-    def clean(self, data):
+    async def clean(self, data):
         if not isinstance(data, dict):
             raise ValidationError(
                 self.error_messages['not_a_dict'],
@@ -851,7 +853,7 @@ class DictField(Field):
                 params=dict(input_type=type(data).__name__)
             )
 
-        return {str(key): self.child.clean(value) for key, value in data.items()}
+        return {str(key): await self.child.clean(value) for key, value in data.items()}
 
 
 class MultiValueField(Field):
@@ -890,7 +892,7 @@ class MultiValueField(Field):
     def validate(self, value):
         pass
 
-    def clean(self, form_data, form_files):
+    async def clean(self, form_data, form_files):
         """
         Validates every value in the given list. A value is validated against
         the corresponding Field in self.fields.
@@ -905,7 +907,7 @@ class MultiValueField(Field):
         for field in self.fields:
             field_value = field.value_from_datadict(form_data, form_files)
             try:
-                field_value = field.clean(field_value)
+                field_value = await field.clean(field_value)
                 if field_value is empty:
                     continue
                 clean_data.append(field_value)
@@ -920,7 +922,7 @@ class MultiValueField(Field):
 
         out = self.compress(clean_data)
         self.validate(out)
-        self.run_validators(out)
+        await self.run_validators(out)
         return out
 
     def compress(self, data_list):
@@ -1023,7 +1025,7 @@ class PasswordField(CharField):
         super(PasswordField, self).__init__(*args, **kwargs)
         self.validators.append(validators.PasswordValidator(self.level))
 
-    def clean(self, value):
+    async def clean(self, value):
         """
         Validates the given value and returns its "cleaned" value as an
         appropriate Python object.
@@ -1032,7 +1034,7 @@ class PasswordField(CharField):
         """
         value = self.to_python(value)
         self.validate(value)
-        self.run_validators(value)
+        await self.run_validators(value)
         return hashers.make_password(password=value, hasher=self.protection)
 
 

@@ -5,13 +5,22 @@ import inspect
 from collections import OrderedDict
 from rest_framework.core.db import models
 from rest_framework.core.exceptions import ImproperlyConfigured, FieldError
+from rest_framework.lib.orm.query import AsyncSelectQuery
 from rest_framework.serializers.fields import (
-    Field, CharField, DateTimeField, IntegerField, BooleanField, FloatField, DateField,
-    TimeField, UUIDField,
-    PKOnlyObject, PrimaryKeyRelatedField)
+    Field,
+    CharField,
+    DateTimeField,
+    IntegerField,
+    BooleanField,
+    FloatField,
+    DateField,
+    TimeField,
+    UUIDField,
+    PKOnlyObject,
+    PrimaryKeyRelatedField,
+)
 from rest_framework.utils.constants import ALL_FIELDS
 
-__author__ = 'caowenbin'
 
 LIST_SERIALIZER_KWARGS = ('default', 'initial', 'source', 'instance')
 
@@ -141,7 +150,10 @@ class ListSerializer(BaseSerializer):
         """
         List of object instances -> List of dicts of primitive datatypes.
         """
-        return [await self.child.to_representation(item) for item in data]
+        if asyncio.iscoroutine(data) or isinstance(data, AsyncSelectQuery):
+            return [await self.child.to_representation(item) async for item in data]
+        else:
+            return [await self.child.to_representation(item) for item in data]
 
     @property
     async def data(self):

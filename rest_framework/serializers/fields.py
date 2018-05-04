@@ -8,7 +8,7 @@ import json
 import datetime
 
 from rest_framework.conf import settings
-from rest_framework.lib.peewee import SelectQuery
+from rest_framework.lib.orm import SelectQuery
 from rest_framework.utils.constants import empty, REGEX_TYPE
 from rest_framework.utils.functional import get_attribute
 
@@ -489,8 +489,8 @@ class ManyRelatedField(Field):
         relationship = get_attribute(instance, self.source_attrs)
         return relationship.select() if hasattr(relationship, 'select') else relationship
 
-    def to_representation(self, iterable):
-        return [
-            self.child_relation.to_representation(value)
-            for value in iterable
-        ]
+    async def to_representation(self, iterable):
+        if hasattr(iterable, "__aiter__"):
+            return [self.child_relation.to_representation(value)  async for value in iterable]
+
+        return [self.child_relation.to_representation(value) for value in iterable]

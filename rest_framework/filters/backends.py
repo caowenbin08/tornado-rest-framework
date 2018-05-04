@@ -7,15 +7,13 @@ from rest_framework.core.db import models
 from rest_framework.core.exceptions import ImproperlyConfigured, ValidationError
 from rest_framework.filters import filterset
 
-__author__ = 'caowenbin'
-
 
 class BaseFilterBackend(object):
     """
     过滤处理基类
     """
 
-    def filter_queryset(self, request, queryset, view):
+    async def filter_queryset(self, request, queryset, view):
         """
         组拼生成对应的过滤queryset，此方法必须子类继承实现
         :param request: 请求对象
@@ -89,7 +87,7 @@ class SearchFilter(BaseFilterBackend):
 
         return field, lookup[0], lookup[1]
 
-    def filter_queryset(self, request_handler, queryset):
+    async def filter_queryset(self, request_handler, queryset):
         search_fields = request_handler.search_fields
         search_terms = self.get_search_terms(request_handler)
 
@@ -174,7 +172,7 @@ class OrderingFilter(BaseFilterBackend):
 
         return norm_order_by
 
-    def filter_queryset(self, request_handler, queryset):
+    async def filter_queryset(self, request_handler, queryset):
         ordering = self.get_ordering(request_handler, queryset)
 
         if ordering:

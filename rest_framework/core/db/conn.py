@@ -6,7 +6,6 @@ from rest_framework.conf import settings
 from rest_framework.core.exceptions import ImproperlyConfigured
 from rest_framework.utils.cached_property import cached_property
 
-__author__ = 'caowenbin'
 
 DEFAULT_DB_ALIAS = 'default'
 
@@ -43,12 +42,10 @@ class ConnectionHandler(object):
             raise ConnectionDoesNotExist("The connection %s doesn't exist" % alias)
 
         options = conn.setdefault("OPTIONS", {})
-        options.setdefault('POOL', False)
         options.setdefault("CHARSET", "utf8")
-
-        if options["POOL"]:
-            options.setdefault("MAX_CONNECTIONS", 20)  # 连接池最大连接数
-            options.setdefault("STALE_TIMEOUT", 100)  # 僵尸连接超时间，单位为秒
+        options.setdefault("CONNECT_TIMEOUT", 10)
+        options.setdefault("MINSIZE", 1)  # 连接池最小连接数
+        options.setdefault("MAXSIZE", 1)  # 连接池最大连接数
 
         for setting in ['NAME', 'USER', 'PASSWORD', 'HOST', 'PORT']:
             conn.setdefault(setting, '')

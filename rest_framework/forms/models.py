@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import asyncio
 from collections import OrderedDict
 
 from rest_framework.core.db import models
@@ -12,7 +13,6 @@ from rest_framework.forms.validators import UniqueTogetherValidator, UniqueValid
 from rest_framework.forms.forms import DeclarativeFieldsMetaclass, BaseForm
 from rest_framework.utils.constants import ALL_FIELDS, EMPTY_VALUES
 
-__author__ = 'caowenbin'
 
 __all__ = ('ModelForm', 'BaseModelForm')
 
@@ -222,12 +222,12 @@ class BaseModelForm(BaseForm):
         validators.extend(form_validators)
         return validators
 
-    def create(self, validated_data):
+    async def create(self, validated_data):
         model_class = self.Meta.model
-        instance = model_class.create(**validated_data)
+        instance = await model_class.create(**validated_data)
         return instance
 
-    def update(self, validated_data):
+    async def update(self, validated_data):
         """
         修改
         :param validated_data:
@@ -235,7 +235,8 @@ class BaseModelForm(BaseForm):
         """
         for attr, value in validated_data.items():
             setattr(self.instance, attr, value)
-        self.instance.save()
+
+        await self.instance.save()
 
         return self.instance
 
@@ -251,11 +252,11 @@ class BaseModelForm(BaseForm):
         validated_data = dict(list((await self.cleaned_data).items()) + list(kwargs.items()))
 
         if self.instance is not None and self.has_changed():
-            self.instance = self.update(validated_data)
+            self.instance = await self.update(validated_data)
             assert self.instance is not None, '`update()` did not return an object instance.'
 
         elif self.instance is None and validated_data:
-            self.instance = self.create(validated_data)
+            self.instance = await self.create(validated_data)
             assert self.instance is not None, '`create()` did not return an object instance.'
 
         return self.instance

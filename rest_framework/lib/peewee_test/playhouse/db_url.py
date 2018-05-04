@@ -8,12 +8,12 @@ from .pool import PooledMySQLDatabase
 from .pool import PooledPostgresqlDatabase
 
 schemes = {
-    'mysql': MySQLDatabase,
-    'mysql+pool': PooledMySQLDatabase,
-    'postgres': PostgresqlDatabase,
-    'postgresql': PostgresqlDatabase,
-    'postgres+pool': PooledPostgresqlDatabase,
-    'postgresql+pool': PooledPostgresqlDatabase,
+    # 'mysql': MySQLDatabase,
+    # 'mysql+pool': PooledMySQLDatabase,
+    # 'postgres': PostgresqlDatabase,
+    # 'postgresql': PostgresqlDatabase,
+    # 'postgres+pool': PooledPostgresqlDatabase,
+    # 'postgresql+pool': PooledPostgresqlDatabase,
 }
 
 
@@ -43,10 +43,10 @@ def parseresult_to_dict(parsed):
         connect_kwargs['port'] = parsed.port
 
     # Adjust parameters for MySQL.
-    if parsed.scheme == 'mysql' and 'password' in connect_kwargs:
-        connect_kwargs['passwd'] = connect_kwargs.pop('password')
-    elif 'sqlite' in parsed.scheme and not connect_kwargs['database']:
-        connect_kwargs['database'] = ':memory:'
+    # if parsed.scheme == 'mysql' and 'password' in connect_kwargs:
+    #     connect_kwargs['passwd'] = connect_kwargs.pop('password')
+    # elif 'sqlite' in parsed.scheme and not connect_kwargs['database']:
+    #     connect_kwargs['database'] = ':memory:'
 
     # Get additional connection args from the query string
     qs_args = parse_qsl(query, keep_blank_values=True)

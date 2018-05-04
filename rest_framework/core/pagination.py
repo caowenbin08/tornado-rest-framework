@@ -6,9 +6,10 @@ from math import ceil
 from collections import OrderedDict
 from rest_framework.core.translation import gettext as _
 from rest_framework.core.exceptions import PaginationError
+from rest_framework.lib.orm.query import AsyncEmptyQuery
 from rest_framework.utils.urls import replace_query_param, remove_query_param
 from rest_framework.core.response import Response
-from rest_framework.utils.cached_property import cached_property
+from rest_framework.utils.cached_property import cached_property, async_cached_property
 
 
 def _positive_int(integer_string, strict=False, cutoff=None):
@@ -31,10 +32,10 @@ def _positive_int(integer_string, strict=False, cutoff=None):
 class BasePagination(object):
     display_page_controls = False
 
-    def paginate_queryset(self, queryset, request, view=None):
+    async def paginate_queryset(self, queryset, request, view=None):
         raise NotImplementedError('paginate_queryset() must be implemented.')
 
-    def get_paginated_response(self, data):
+    async def get_paginated_response(self, data):
         raise NotImplementedError('get_paginated_response() must be implemented.')
 
     @staticmethod
@@ -55,27 +56,29 @@ class Paginator(object):
         self._page_number = 0
         self.orphans = orphans
 
-    def page_data(self, page_number):
+    async def page_data(self, page_number):
         """
         :param page_number: 页码
         :return:
         """
         self._page_number = page_number
         bottom = (self._page_number - 1) * self.page_size
-        if bottom + self.orphans >= self.count:
+        count = self.count
+        if bottom + self.orphans >= count:
             bottom = self.count
 
         return self.queryset.limit(self.page_size).offset(bottom)
 
-    @cached_property
-    def count(self):
+    @async_cached_property
+    async def count(self):
         """
         总记录大小
         """
         try:
-            return self.queryset.count()
+            count = await self.queryset.count()
+            return count
         except (AttributeError, TypeError):
-            return len(self.queryset)
+            return len(await self.queryset)
 
     @cached_property
     def num_pages(self):
@@ -186,7 +189,7 @@ class PageNumberPagination(BasePagination):
                 for k, v in paginate_settings.items():
                     setattr(self, k, v)
 
-    def paginate_queryset(self, request_handler, queryset):
+    async def paginate_queryset(self, request_handler, queryset):
         """
         :param request_handler: 请求处理类对象本身，即view
         :param queryset:
@@ -196,20 +199,21 @@ class PageNumberPagination(BasePagination):
         self.load_paginate_settings()
         page_size = self.get_page_size()
         if not page_size:
-            return None
+            return AsyncEmptyQuery()
 
         paginator = self.paginator_class(queryset, page_size, self.orphans)
         setattr(self, "paginator", paginator)
-        if self.paginator.count == 0:
-            return []
+        if await self.paginator.count == 0:
+            return AsyncEmptyQuery()
 
         page_number = self.get_page_number()
 
-        return self.paginator.page_data(page_number)
+        return await self.paginator.page_data(page_number)
 
-    def get_paginated_response(self, data):
+    async def get_paginated_response(self, data):
+        count = self.paginator.count
         return Response(OrderedDict([
-            ('count', self.paginator.count),
+            ('count', count),
             ('num_pages', self.paginator.num_pages),
             ('next', self.get_next_link()),
             ('previous', self.get_previous_link()),

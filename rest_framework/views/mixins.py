@@ -2,10 +2,10 @@
 import asyncio
 from rest_framework import serializers
 from rest_framework.core.exceptions import SkipFilterError
+from rest_framework.lib.orm.query import AsyncEmptyQuery
 from rest_framework.core.translation import locale, make_lazy_gettext
 from rest_framework.utils import status
 
-__author__ = 'caowenbin'
 
 __all__ = [
     'CreateModelMixin',
@@ -71,12 +71,12 @@ class ListModelMixin(object):
         try:
             queryset = await self.filter_queryset(self.get_queryset())
         except SkipFilterError:
-            queryset = []
+            queryset = AsyncEmptyQuery()
 
-        page = self.paginate_queryset(queryset)
+        page = await self.paginate_queryset(queryset)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
-            return self.write_paginated_response(await serializer.data)
+            return await self.write_paginated_response(await serializer.data)
 
         serializer = self.get_serializer(queryset, many=True)
 
@@ -88,10 +88,7 @@ class RetrieveModelMixin(object):
     查看详情
     """
     async def retrieve(self, *args, **kwargs):
-        instance = self.get_object()
-        if asyncio.iscoroutine(instance):
-            instance = await instance
-
+        instance = await self.get_object()
         serializer = self.get_serializer(instance=instance)
         return self.write_response(await serializer.data)
 
@@ -142,13 +139,13 @@ class DestroyModelMixin(object):
     """
     删除对象
     """
-    def destroy(self, *args, **kwargs):
-        instance = self.get_object()
-        del_rows = self.perform_destroy(instance)
+    async def destroy(self, *args, **kwargs):
+        instance = await self.get_object()
+        del_rows = await self.perform_destroy(instance)
         return self.write_response(data=dict(rows=del_rows), status_code=status.HTTP_200_OK)
 
-    def perform_destroy(self, instance):
-        del_rows = instance.delete_instance()
+    async def perform_destroy(self, instance):
+        del_rows = await instance.delete_instance()
         return del_rows
 
 

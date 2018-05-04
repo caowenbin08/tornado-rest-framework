@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
+import asyncio
 from rest_framework.core.db import models
 from rest_framework.core.exceptions import ValidationError
 from rest_framework.core.translation import gettext as _
-
-__author__ = 'caowenbin'
 
 
 class UniqueValidator(object):
@@ -47,11 +46,12 @@ class UniqueValidator(object):
             return queryset.exclude(**{pk_field.name: getattr(self.instance, pk_field.name)})
         return queryset
 
+    @asyncio.coroutine
     def __call__(self, value):
         queryset = self.queryset
         queryset = self.filter_queryset(value, queryset)
         queryset = self.exclude_current_instance(queryset)
-        if qs_exists(queryset):
+        if (yield from qs_exists(queryset)):
             raise ValidationError(
                 self.message, code='unique',
                 params={"field_name": self.field_name}
@@ -64,9 +64,12 @@ class UniqueValidator(object):
         )
 
 
-def qs_exists(queryset):
+async def qs_exists(queryset):
     try:
-        return queryset.exists()
+        qs = queryset.exists()
+        if asyncio.iscoroutine(qs):
+            return await qs
+        return qs
     except (TypeError, ValueError, models.DataError):
         return False
 
@@ -143,6 +146,7 @@ class UniqueTogetherValidator(object):
 
         return queryset
 
+    @asyncio.coroutine
     def __call__(self, req_params):
         self.enforce_required_fields(req_params)
         queryset = self.queryset
@@ -150,7 +154,7 @@ class UniqueTogetherValidator(object):
         queryset = self.exclude_current_instance(queryset)
         checked_values = [value for field, value in req_params.items() if field in self.fields]
 
-        if None not in checked_values and qs_exists(queryset):
+        if None not in checked_values and (yield from qs_exists(queryset)):
             field_names = ', '.join(self.fields)
             raise ValidationError(
                 self.message,

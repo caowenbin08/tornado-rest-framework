@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
+import asyncio
 from time import time
 import threading
 
-__author__ = 'caowenbin'
 
-
-class CachedProperty(object):
+class CachedProperty:
     """
     一般缓存
     """
@@ -16,11 +15,33 @@ class CachedProperty(object):
     def __get__(self, obj, cls):
         if obj is None:
             return self
+
         value = obj.__dict__[self.func.__name__] = self.func(obj)
         return value
 
 
-class ThreadedCachedProperty(object):
+class AsyncCachedProperty(CachedProperty):
+    """
+    一般缓存
+    """
+    def __init__(self, func):
+        self.__doc__ = getattr(func, '__doc__')
+        self.func = func
+
+    @asyncio.coroutine
+    def __get__(self, obj, cls):
+        if obj is None:
+            return self
+
+        if asyncio.iscoroutinefunction(self.func):
+            v = yield from self.func(obj)
+        else:
+            v = self.func(obj)
+        value = obj.__dict__[self.func.__name__] = v
+        return value
+
+
+class ThreadedCachedProperty:
     """
     用于多线程场景的缓存
     """
@@ -45,7 +66,7 @@ class ThreadedCachedProperty(object):
                 return obj_dict.setdefault(name, self.func(obj))
 
 
-class CachedPropertyWithTtl(object):
+class CachedPropertyWithTtl:
     """
     带失效时间的缓存，单位秒
     """
@@ -112,6 +133,8 @@ class ThreadedCachedPropertyWithTtl(CachedPropertyWithTtl):
             return super(ThreadedCachedPropertyWithTtl, self).__get__(obj, cls)
 
 cached_property = CachedProperty
+async_cached_property = AsyncCachedProperty
+
 cached_property_ttl = CachedPropertyWithTtl
 timed_cached_property = CachedPropertyWithTtl
 

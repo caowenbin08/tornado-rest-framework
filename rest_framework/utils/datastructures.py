@@ -1,14 +1,13 @@
 # -*- coding: utf-8 -*-
 from itertools import repeat
 
-__author__ = 'caowenbin'
 
 
 def is_immutable(self):
     raise TypeError('%r objects are immutable' % self.__class__.__name__)
 
 
-class ImmutableDictMixin(object):
+class ImmutableDictMixin:
     """
     生成不可变的字典结构
     """

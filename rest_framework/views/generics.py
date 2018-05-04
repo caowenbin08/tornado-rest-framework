@@ -14,7 +14,7 @@ from rest_framework.core import exceptions
 from rest_framework.core.track import trackers
 from rest_framework.core.exceptions import APIException, ErrorDetail, SkipFilterError
 from rest_framework.core.translation import locale
-from rest_framework.lib.peewee import IntegrityError
+from rest_framework.lib.orm import IntegrityError
 from rest_framework.views import mixins
 from rest_framework.conf import settings
 from rest_framework.core.db import models
@@ -308,7 +308,6 @@ class BaseAPIHandler(RequestHandler, BabelTranslatorMixin):
                 )
 
     def finalize_response(self, response, *args, **kwargs):
-
         if not isinstance(response, Response):
             raise TypeError("Request return value types must be the Response")
         loop = asyncio.get_event_loop()
@@ -397,13 +396,11 @@ class GenericAPIHandler(BaseAPIHandler):
     async def filter_queryset(self, queryset):
         for backend in self.load_filter_class:
             filter_cls = backend()
-            queryset = filter_cls.filter_queryset(self, queryset)
-            if asyncio.iscoroutine(queryset):
-                queryset = await queryset
+            queryset = await filter_cls.filter_queryset(self, queryset)
 
         return queryset
 
-    def get_object_or_404(self, queryset, *args, **kwargs):
+    async def get_object_or_404(self, queryset, *args, **kwargs):
         """
          查询对象，如果对象不存在则抛出404
         :param queryset:
@@ -412,7 +409,7 @@ class GenericAPIHandler(BaseAPIHandler):
         :return:
         """
         try:
-            return self.get_queryset(queryset).filter(*args, **kwargs).get()
+            return await self.get_queryset(queryset).filter(*args, **kwargs).get()
         except AttributeError:
             queryset_name = queryset.__name__ if isinstance(queryset, type) \
                 else queryset.__class__.__name__
@@ -430,7 +427,7 @@ class GenericAPIHandler(BaseAPIHandler):
         查询单一对象，如果为空抛出404
         """
         try:
-            queryset = self.filter_queryset(self.get_queryset())
+            queryset = await self.filter_queryset(self.get_queryset())
         except SkipFilterError:
             raise exceptions.APIException(
                 status_code=404,
@@ -438,11 +435,11 @@ class GenericAPIHandler(BaseAPIHandler):
                 else _("Resource data does not exist")
             )
 
-        if asyncio.iscoroutine(queryset):
-            queryset = await queryset
-
+        # if asyncio.iscoroutine(queryset):
+        #     queryset = await queryset
+        #
         queryset = queryset.naive()
-
+        #
         lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field
         path_kwargs = self.path_kwargs or self.request_data
         assert lookup_url_kwarg in path_kwargs, (
@@ -453,7 +450,7 @@ class GenericAPIHandler(BaseAPIHandler):
         )
 
         filter_kwargs = {self.lookup_field: path_kwargs[lookup_url_kwarg]}
-        obj = self.get_object_or_404(queryset, **filter_kwargs)
+        obj = await self.get_object_or_404(queryset, **filter_kwargs)
 
         # 检查操作权限
         # self.check_object_permissions(self.request, obj)
@@ -538,22 +535,22 @@ class GenericAPIHandler(BaseAPIHandler):
 
         return self._paginator
 
-    def paginate_queryset(self, queryset):
+    async def paginate_queryset(self, queryset):
         """
         生成分页页对象
         """
         if self.paginator is None:
             return None
 
-        return self.paginator.paginate_queryset(self, queryset)
+        return await self.paginator.paginate_queryset(self, queryset)
 
-    def write_paginated_response(self, data):
+    async def write_paginated_response(self, data):
         """
         生成分页返回结构
         :param data: 已序列化之后的数据
         :return:
         """
-        return self.paginator.get_paginated_response(data)
+        return await self.paginator.get_paginated_response(data)
 
     @cached_property
     def error_msg_404(self):
@@ -601,7 +598,7 @@ class DestroyAPIHandler(mixins.DestroyModelMixin, GenericAPIHandler):
     删除对象
     """
     async def delete(self, *args, **kwargs):
-        return self.destroy(*args, **kwargs)
+        return await self.destroy(*args, **kwargs)
 
 
 class RetrieveUpdateAPIHandler(mixins.RetrieveModelMixin, mixins.UpdateModelMixin, GenericAPIHandler):

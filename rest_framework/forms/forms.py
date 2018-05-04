@@ -174,14 +174,11 @@ class BaseForm(object):
             try:
                 if isinstance(field, FileField):
                     initial = self.get_initial_for_field(field, name)
-                    value = field.clean(value, initial)
+                    value = await field.clean(value, initial)
                 elif isinstance(field, MultiValueField):
-                    value = field.clean(self.data, self.files)
+                    value = await field.clean(self.data, self.files)
                 else:
-                    value = field.clean(value)
-
-                if asyncio.iscoroutine(value):
-                    value = await value
+                    value = await field.clean(value)
 
                 if customize_method is not None:
                     value = customize_method(value)
@@ -224,8 +221,10 @@ class BaseForm(object):
         for validator in self.validators:
             if hasattr(validator, 'set_context'):
                 validator.set_context(self)
+            ok = validator(await self.cleaned_data)
 
-            validator(await self.cleaned_data)
+            if asyncio.iscoroutine(ok):
+                await ok
 
     async def clean(self):
         """
