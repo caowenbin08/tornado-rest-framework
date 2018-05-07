@@ -27,7 +27,7 @@ class ConnectionHandler(object):
         if self._databases is None:
             self._databases = settings.DATABASES
 
-        if DEFAULT_DB_ALIAS not in self._databases:
+        if self._databases and DEFAULT_DB_ALIAS not in self._databases:
             raise ImproperlyConfigured("You must define a '%s' database" % DEFAULT_DB_ALIAS)
 
         return self._databases
@@ -88,3 +88,5 @@ class ConnectionHandler(object):
     def __iter__(self):
         return iter(self.databases)
 
+    def all(self):
+        return (self[alias] for alias in self)

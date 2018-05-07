@@ -18,6 +18,7 @@ from tornado.platform.asyncio import AsyncIOMainLoop
 from rest_framework import conf
 from rest_framework.conf import settings
 from rest_framework.core.script.exceptions import CommandError
+from rest_framework.core.singnals import app_closed
 
 PATTERN = re.compile('^[a-zA-Z]+[a-zA-Z_]*[a-zA-Z]$')
 
@@ -383,11 +384,13 @@ class Server(Command):
         debug = kwargs.pop("debug", None)
         if debug is not None:
             app_settings["debug"] = debug
+
         try:
             import uvloop
             asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
         except ImportError:
             pass
+
         AsyncIOMainLoop().install()
         loop = asyncio.get_event_loop()
         app = tornado.web.Application(urlpatterns, **app_settings)
@@ -399,6 +402,9 @@ class Server(Command):
         except KeyboardInterrupt:
             sys.stderr.flush()
         finally:
+            app_closed.send(self)
+            loop.stop()
+            loop.run_until_complete(loop.shutdown_asyncgens())
             loop.close()
 
 

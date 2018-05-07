@@ -77,7 +77,7 @@ class BaseSerializer(Field):
             if asyncio.iscoroutine(attr_data):
                 attr_data = await attr_data
 
-            attr_data = await self.clean_data(field_name, attr_data)
+            attr_data = await self.clean_data(instance, field_name, attr_data)
             ret[field_name] = attr_data
 
         cleaned_data = await self.clean(ret)
@@ -86,14 +86,14 @@ class BaseSerializer(Field):
 
         return ret
 
-    async def clean_data(self, field_name, value):
+    async def clean_data(self, instance, field_name, value):
         """
         处理用户自定义的clean_**函数（**为字段名）
         """
         clean_method = 'clean_%s' % field_name
         if hasattr(self, clean_method):
             customize_method = getattr(self, clean_method)
-            value = customize_method(value)
+            value = customize_method(instance, value)
             if asyncio.iscoroutine(value):
                 value = await value
 

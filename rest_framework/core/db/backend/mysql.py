@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 from rest_framework.lib.orm import connect
-
 from rest_framework.core.db import DEFAULT_DB_ALIAS
 
 
@@ -31,7 +30,6 @@ class DatabaseWrapper(object):
             port=self.db_settings.get("PORT", 3306),
             db=self.db_settings.get("NAME", "")
         )
-        print("db_url:", db_url)
         database = connect(url=db_url, **connect_params)
 
         return database

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from rest_framework.lib import orm
+from rest_framework.core.singnals import app_closed
 from rest_framework.core.db.conn import ConnectionHandler, DEFAULT_DB_ALIAS
 
 models = orm
@@ -25,3 +26,10 @@ class DefaultConnectionProxy(object):
 
 # 默认数据库连接
 database = DefaultConnectionProxy()
+
+
+async def close_db_connections(sender, **kwargs):
+    for db in databases.all():
+        await db.close()
+
+app_closed.connect(close_db_connections)
