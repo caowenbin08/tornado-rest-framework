@@ -1,18 +1,15 @@
 # -*- coding: utf-8 -*-
-import asyncio
-
 import pytz
 import copy
 import inspect
-import json
 import datetime
 
 from rest_framework.conf import settings
 from rest_framework.lib.orm import SelectQuery
+from rest_framework.utils.escape import json_encode
 from rest_framework.utils.constants import empty, REGEX_TYPE
 from rest_framework.utils.functional import get_attribute
 
-__author__ = 'caowenbin'
 
 __all__ = [
     'Field', 'BooleanField', 'NullBooleanField', 'CharField', 'UUIDField',
@@ -319,7 +316,7 @@ class JSONField(Field):
 
     def to_representation(self, value):
         if self.binary:
-            value = json.dumps(value)
+            value = json_encode(value)
             if isinstance(value, str):
                 value = bytes(value.encode('utf-8'))
         return value

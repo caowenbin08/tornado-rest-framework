@@ -3,13 +3,12 @@
 解析请求参数
 """
 import functools
-from tornado.escape import json_decode
 
 from rest_framework.conf import settings
-from rest_framework.core.exceptions import ParseError, ImproperlyConfigured
+from rest_framework.utils.escape import json_decode
+from rest_framework.core.exceptions import ParseError
 from rest_framework.utils.functional import import_object
-
-__author__ = 'caowenbin'
+from rest_framework.core.exceptions import ImproperlyConfigured
 
 
 class DataAndFiles(object):

@@ -1,3 +1,5 @@
 tornado>=4.5.2
 pytz
 blinker>=1.4
+Babel>=2.5.1
+ujson

@@ -27,8 +27,6 @@ from rest_framework.core.response import Response
 from rest_framework.views.mixins import BabelTranslatorMixin
 from rest_framework.core.translation import gettext as _
 
-__author__ = 'caowenbin'
-
 __all__ = [
     'GenericAPIHandler',
     'ListAPIHandler',

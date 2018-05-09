@@ -3,13 +3,29 @@
 分页处理
 """
 from math import ceil
+from urllib import parse
 from collections import OrderedDict
+from rest_framework.core.response import Response
 from rest_framework.core.translation import gettext as _
 from rest_framework.core.exceptions import PaginationError
 from rest_framework.lib.orm.query import AsyncEmptyQuery
-from rest_framework.utils.urls import replace_query_param, remove_query_param
-from rest_framework.core.response import Response
 from rest_framework.utils.cached_property import cached_property, async_cached_property
+
+
+def replace_query_param(url, key, val):
+    (scheme, netloc, path, query, fragment) = parse.urlsplit(url)
+    query_dict = parse.parse_qs(query, keep_blank_values=True)
+    query_dict[key] = [val]
+    query = parse.urlencode(sorted(list(query_dict.items())), doseq=True)
+    return parse.urlunsplit((scheme, netloc, path, query, fragment))
+
+
+def remove_query_param(url, key):
+    (scheme, netloc, path, query, fragment) = parse.urlsplit(url)
+    query_dict = parse.parse_qs(query, keep_blank_values=True)
+    query_dict.pop(key, None)
+    query = parse.urlencode(sorted(list(query_dict.items())), doseq=True)
+    return parse.urlunsplit((scheme, netloc, path, query, fragment))
 
 
 def _positive_int(integer_string, strict=False, cutoff=None):

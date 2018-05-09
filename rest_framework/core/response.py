@@ -1,9 +1,6 @@
 # -*- coding: utf-8 -*-
-from tornado.escape import json_encode
-
+from rest_framework.utils.escape import json_encode
 from rest_framework.utils.status import HTTP_200_OK
-
-__author__ = 'caowenbin'
 
 
 class Response(object):
