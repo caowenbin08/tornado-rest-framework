@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 import re
 import asyncio
-import traceback
-import functools
 
 from tornado import gen
 from tornado import httputil
@@ -11,7 +9,6 @@ from tornado.log import app_log, gen_log
 from tornado.web import RequestHandler, HTTPError
 
 from rest_framework.core import exceptions
-from rest_framework.core.track import trackers
 from rest_framework.core.exceptions import APIException, ErrorDetail, SkipFilterError
 from rest_framework.core.translation import locale
 from rest_framework.lib.orm import IntegrityError
@@ -67,11 +64,6 @@ class BaseAPIHandler(RequestHandler, BabelTranslatorMixin):
     """
     # 不需要检查xsrf的请求方法
     NOT_CHECK_XSRF_METHOD = ("GET", "HEAD", "OPTIONS")
-    tracker_label = "default"
-    access_tracker_event_name = "app.access"
-    exec_tracker_event_name = "app.exceptions"
-    # 是否记录正常请求日志, False不记录 True 记录
-    is_write_access_tracker = False
 
     def __init__(self, application, request, **kwargs):
         self.request_data = None
@@ -273,43 +265,9 @@ class BaseAPIHandler(RequestHandler, BabelTranslatorMixin):
 
         return error_response
 
-    def write_log(self, response, *args, **kwargs):
-        status_code = response.status_code
-        params = _clean_credentials(self.request_data)
-        log_context = dict(params=params)
-        log_context["method"] = self.request.method
-        log_context["uri"] = self.request.uri
-        log_context["remote_ip"] = self.request.remote_ip
-
-        if status.is_server_error(status_code):
-            log_context["reason"] = traceback.format_exc()
-            with trackers[self.tracker_label].context(self.exec_tracker_event_name, log_context):
-                trackers[self.tracker_label].emit(
-                    self.exec_tracker_event_name,
-                    response.data,
-                    "error"
-                )
-        elif status.is_client_error(status_code):
-            with trackers[self.tracker_label].context(self.exec_tracker_event_name, log_context):
-                trackers[self.tracker_label].emit(
-                    self.exec_tracker_event_name,
-                    response.data,
-                    "WARNING"
-                )
-
-        elif status.is_success(status_code) and self.is_write_access_tracker:
-            with trackers[self.tracker_label].context(self.access_tracker_event_name, log_context):
-                trackers[self.tracker_label].emit(
-                    self.access_tracker_event_name,
-                    response.data,
-                    "info"
-                )
-
     def finalize_response(self, response, *args, **kwargs):
         if not isinstance(response, Response):
             raise TypeError("Request return value types must be the Response")
-        loop = asyncio.get_event_loop()
-        loop.run_in_executor(None, functools.partial(self.write_log, response,  *args, **kwargs))
         self.set_status(response.status_code)
         self.set_header('Content-Type', response.content_type)
 

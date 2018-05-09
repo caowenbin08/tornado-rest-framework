@@ -13,39 +13,9 @@ __author__ = 'caowenbin'
 DEFAULT_SERIALIZER = 'rest_framework.core.serializers.pickle.PickleSerializer'
 DEFAULT_COMPRESSOR = 'rest_framework.core.compressors.identity.IdentityCompressor'
 
-UNLOCK_SCRIPT = """
-if redis.call("get",KEYS[1]) == ARGV[1] then
-    return redis.call("del",KEYS[1])
-else
-    return 0
-end"""
-
-SET_IF_NOT_EXISTS = 'SET_IF_NOT_EXIST'
-
 LOCK_TIMEOUT = 10
 LOCK_RETRY_DELAY = 0.1
 _NOTSET = object()
-
-
-class Lock(object):
-    def __init__(self, key, lock_id, cache, was_obtained=False):
-        self.key = key
-        self.lock_id = lock_id
-        self.was_obtained = was_obtained
-        self._cache = cache
-
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        await self.unlock()
-
-    @property
-    async def is_locked(self):
-        return await self._cache.check_lock(self)
-
-    async def unlock(self):
-        await self._cache.unlock(self)
 
 
 class AsyncRedisCache(BaseCache):
@@ -279,41 +249,6 @@ class AsyncRedisCache(BaseCache):
             count = len(keys)
             await client.delete(*keys)
             return count
-
-    async def lock(self, key, timeout=LOCK_TIMEOUT, retries=3, version=None):
-        """
-        Attempts to obtain a redis lock on a specific key
-        """
-        key = self.make_key(key, version=version)
-        lock_id = str(uuid.uuid4())
-
-        obtained = await self._lock(key, lock_id, timeout)
-        if not obtained:
-            while retries and not obtained:
-                retries -= 1
-                await asyncio.sleep(LOCK_RETRY_DELAY)
-                obtained = await self._lock(key, lock_id, timeout)
-        return Lock(key=key, lock_id=lock_id, cache=self, was_obtained=obtained)
-
-    async def _lock(self, key, lock_id, timeout):
-        value = self.encode(lock_id)
-        with await (await self.client) as client:
-            return await client.set(key, value=value, expire=timeout, exist=SET_IF_NOT_EXISTS)
-
-    async def check_lock(self, lock):
-        """ Checks to see if a lock is still locked """
-        with await (await self.client) as client:
-            data = await client.get(lock.key)
-            return self.decode(data) == lock.lock_id if data else False
-
-    async def unlock(self, lock):
-        """ Unlocks a lock """
-        if lock.was_obtained:
-            await self.run_lua(UNLOCK_SCRIPT, keys=[lock.key], args=[self.encode(lock.lock_id)])
-
-    async def run_lua(self, script, keys=None, args=None):
-        with await (await self.client) as client:
-            return await client.eval(script, keys=keys, args=args)
 
     #  Hash API
     async def hmset_dict(self, key, *args, timeout=0, **kwargs):
