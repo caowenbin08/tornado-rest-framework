@@ -3,8 +3,6 @@ from importlib import import_module
 
 from rest_framework.utils.functional import import_object
 
-__author__ = 'caowenbin'
-
 
 def url(pattern, handler, kwargs=None, name=None, prefix=''):
     """

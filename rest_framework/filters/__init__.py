@@ -3,5 +3,5 @@ from .backends import *
 from .filterset import FilterSet
 from .filters import *
 
-__author__ = 'caowenbin'
+
 

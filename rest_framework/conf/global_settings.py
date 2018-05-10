@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 
-__author__ = 'caowenbin'
-
 # 是否调试模式
 DEBUG = False
 # 存表为时间区
@@ -13,7 +11,17 @@ SHOW_TIME_ZONE = "UTC"
 XSRF_COOKIES = False
 
 # 缓存配置
-CACHES = {}
+CACHES = {
+    "default": {
+        "BACKEND": "rest_framework.core.cache.backend.simple",
+        "LOCATION": "",
+        "KEY_PREFIX": "",
+        "DEFAULT_TIMEOUT": 300,  # 默认过期时间（秒）
+        "OPTIONS": {
+            "THRESHOLD": 500
+        }
+    }
+}
 # 语言
 LANGUAGE_CODE = 'en_US'
 LANGUAGE_PATHS = []
@@ -69,10 +77,3 @@ DATETIME_INPUT_FORMATS = [
     '%m/%d/%y',              # '10/25/06'
 ]
 
-# 日志跟踪配置
-LOG_TRACKERS = {
-    'default': {
-        'ENGINE': 'rest_framework.core.track.backend.logger',
-        'OPTIONS': {},
-    }
-}

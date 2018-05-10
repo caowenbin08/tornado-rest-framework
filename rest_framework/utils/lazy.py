@@ -6,8 +6,6 @@ from functools import total_ordering, wraps
 
 from rest_framework.utils.constants import empty
 
-__author__ = 'caowenbin'
-
 
 def new_method_proxy(func):
     """

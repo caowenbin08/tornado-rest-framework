@@ -10,7 +10,7 @@ from rest_framework.core.script.base import Manager
 from rest_framework.utils.functional import get_random_string
 from rest_framework.utils.transcoder import force_bytes
 
-__author__ = 'caowenbin'
+
 
 SecretKeyCommand = Manager(usage="Key generation command")
 

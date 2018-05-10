@@ -9,7 +9,6 @@ import argparse
 from rest_framework.core.script.commands import Option, Command, Server, StartProject
 from rest_framework.core.script.exceptions import CommandError
 
-__author__ = 'caowenbin'
 
 LOG_HANDLER = logging.StreamHandler()
 LOG_HANDLER.setFormatter(logging.Formatter('%(levelname)s: %(message)s'))

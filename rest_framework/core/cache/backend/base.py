@@ -1,256 +1,342 @@
 # -*- coding: utf-8 -*-
-import time
-import warnings
+import base64
+import datetime
+import functools
+import hashlib
+import inspect
+import logging
+import asyncio
+import string
+from importlib import import_module
 
-from rest_framework.utils.functional import import_object
-from rest_framework.core.exceptions import ImproperlyConfigured, TornadoRuntimeWarning
-
-__author__ = 'caowenbin'
-
-
-class InvalidCacheBackendError(ImproperlyConfigured):
-    pass
-
-
-class CacheKeyWarning(TornadoRuntimeWarning):
-    pass
+from rest_framework.core.singnals import app_closed
+from rest_framework.core.exceptions import CompressorError
+from rest_framework.utils.transcoder import force_bytes
 
 DEFAULT_TIMEOUT = object()
-# 缓存的key最大长度
-CACHE_MAX_KEY_LENGTH = 250
+DEFAULT_SERIALIZER = 'rest_framework.core.serializers.null'
+DEFAULT_COMPRESSOR = 'rest_framework.core.compressors.null'
+logger = logging.getLogger(__name__)
+
+valid_chars = set(string.ascii_letters + string.digits + '_.')
+delchars = ''.join(c for c in map(chr, range(256)) if c not in valid_chars)
+null_control = (dict((k, None) for k in delchars),)
 
 
-def default_key_func(key, key_prefix, version):
-    """
-    Default function to generate keys.
+class BaseCache:
+    def __init__(self, server, params: dict):
+        self._server = server
+        self.key_prefix = force_bytes(params.get('KEY_PREFIX', b''))
+        self.default_timeout = params.get("DEFAULT_TIMEOUT", 300)
+        self._options = params.get('OPTIONS', {})
+        self._serializer = import_module(params.get('SERIALIZER', DEFAULT_SERIALIZER)).Handler()
+        self._compressor = import_module(params.get('COMPRESSOR', DEFAULT_COMPRESSOR)).Handler()
+        app_closed.connect(self.close)
 
-    Constructs the key used by all other methods. By default it prepends
-    the `key_prefix'. KEY_FUNCTION can be used to specify an alternate
-    function with custom key making behavior.
-    """
-    return '%s:%s:%s' % (key_prefix, version, key)
+    def decode(self, data):
+        if data is None:
+            return None
 
-
-def get_key_func(key_func):
-    """
-    Function to decide which key function to use.
-
-    Defaults to ``default_key_func``.
-    """
-    if key_func is not None:
-        if callable(key_func):
-            return key_func
-        else:
-            return import_object(key_func)
-    return default_key_func
-
-
-class BaseCache(object):
-    def __init__(self, params):
-        timeout = params.get('timeout', params.get('TIMEOUT', 300))
-        if timeout is not None:
+        if not isinstance(data, (bool, int, float)):
             try:
-                timeout = int(timeout)
-            except (ValueError, TypeError):
-                timeout = 300
-        self.default_timeout = timeout
-        self.override_key = params.get("OVERRIDE_KEY", True)
-        self.key_prefix = params.get('KEY_PREFIX', '')
-        self.version = params.get('VERSION', 1)
-        self.key_func = get_key_func(params.get('KEY_FUNCTION'))
+                data = self._compressor.decompress(data)
+            except CompressorError:
+                pass
+            data = self._serializer.loads(data)
+
+        return data
+
+    def encode(self, data):
+        if not isinstance(data, (bool, int, float)):
+            data = self._serializer.dumps(data)
+            data = self._compressor.compress(data)
+        return data
 
     def get_backend_timeout(self, timeout=DEFAULT_TIMEOUT):
-        """
-        Returns the timeout value usable by this backend based upon the provided
-        timeout.
-        """
+        if isinstance(timeout, datetime.timedelta):
+            timeout = timeout.seconds + timeout.days * 24 * 3600
+
         if timeout == DEFAULT_TIMEOUT:
-            timeout = self.default_timeout
+            timeout = int(self.default_timeout)
         elif timeout == 0:
-            # ticket 21147 - avoid time.time() related precision issues
-            timeout = -1
-        return None if timeout is None else time.time() + timeout
+            timeout = None
+        return timeout
 
-    def make_key(self, key, version=None):
-        """Constructs the key used by all other methods. By default it
-        uses the key_func to generate a key (which, by default,
-        prepends the `key_prefix' and 'version'). A different key
-        function can be provided at the time of cache construction;
-        alternatively, you can subclass the cache backend to provide
-        custom key making behavior.
-        """
-        if not self.override_key:
-            return key
+    def make_key(self, key):
+        return b"%b%b" % (self.key_prefix, force_bytes(key))
 
-        if version is None:
-            version = self.version
+    def get(self, key):
+        """
+        在缓存中查找密钥key并返回它的值。 如果该键不存在，则返回None
+        :param key:
+        :return:
+        """
+        return None
 
-        new_key = self.key_func(key, self.key_prefix, version)
-        return new_key
+    def delete(self, key):
+        """
+        从缓存中删除`key`。 如果它不存在于缓存中什么都没发生
+        :param key:
+        :return:
+        """
+        pass
 
-    def add(self, key, value, timeout=DEFAULT_TIMEOUT, version=None):
+    def get_many(self, *keys):
         """
-        Set a value in the cache if the key does not already exist. If
-        timeout is given, that timeout will be used for the key; otherwise
-        the default cache timeout will be used.
+        返回给定键的值列表, 如果键不存在，则返回None
+        :param keys:
+        :return:
+        """
+        return map(self.get, keys)
 
-        Returns True if the value was stored, False otherwise.
+    def get_dict(self, *keys):
         """
-        raise NotImplementedError('subclasses of BaseCache must provide an add() method')
+        像get_many函数执行，只是返回字典结构
+        :param keys:
+        :return:
+        """
+        return dict(zip(keys, self.get_many(*keys)))
 
-    def get(self, key, default=None, version=None):
+    def set(self, key, value, timeout=None):
         """
-        Fetch a given key from the cache. If the key does not exist, return
-        default, which itself defaults to None.
+        将新key/value添加到缓存（如果密钥已存在于缓存中，则覆盖该值）
+        :param key:
+        :param value:
+        :param timeout:
+        :return:
         """
-        raise NotImplementedError('subclasses of BaseCache must provide a get() method')
+        pass
 
-    def set(self, key, value, timeout=DEFAULT_TIMEOUT, version=None):
+    def add(self, key, value, timeout=None):
         """
-        Set a value in the cache. If timeout is given, that timeout will be
-        used for the key; otherwise the default cache timeout will be used.
+        像set函数工作，但不会覆盖已经存在的键的值
+        :param key:
+        :param value:
+        :param timeout:
+        :return:
         """
-        raise NotImplementedError('subclasses of BaseCache must provide a set() method')
+        pass
 
-    def delete(self, key, version=None):
-        """
-        Delete a key from the cache, failing silently.
-        """
-        raise NotImplementedError('subclasses of BaseCache must provide a delete() method')
+    @staticmethod
+    def _items(mapping):
+        if hasattr(mapping, "items"):
+            return mapping.items()
+        return mapping
 
-    def get_many(self, keys, version=None):
+    def set_many(self, mapping, timeout=None):
         """
-        Fetch a bunch of keys from the cache. For certain backends (memcached,
-        pgsql) this can be *much* faster when fetching multiple values.
+        从映射中设置多个键和值
+        :param mapping:
+        :param timeout:
+        :return:
+        """
+        for key, value in self._items(mapping):
+            self.set(key, value, timeout)
 
-        Returns a dict mapping each key in keys to its value. If the given
-        key is missing, it will be missing from the response dict.
+    def delete_many(self, *keys):
         """
-        d = {}
-        for k in keys:
-            val = self.get(k, version=version)
-            if val is not None:
-                d[k] = val
-        return d
-
-    def get_or_set(self, key, default, timeout=DEFAULT_TIMEOUT, version=None):
-        """
-        Fetch a given key from the cache. If the key does not exist,
-        the key is added and set to the default value. The default value can
-        also be any callable. If timeout is given, that timeout will be used
-        for the key; otherwise the default cache timeout will be used.
-
-        Return the value of the key stored or retrieved.
-        """
-        val = self.get(key, version=version)
-        if val is None and default is not None:
-            if callable(default):
-                default = default()
-            self.add(key, default, timeout=timeout, version=version)
-            # Fetch the value again to avoid a race condition if another caller
-            # added a value between the first get() and the add() above.
-            return self.get(key, default, version=version)
-        return val
-
-    def has_key(self, key, version=None):
-        """
-        Returns True if the key is in the cache and has not expired.
-        """
-        return self.get(key, version=version) is not None
-
-    def incr(self, key, delta=1, version=None):
-        """
-        Add delta to value in the cache. If the key does not exist, raise a
-        ValueError exception.
-        """
-        value = self.get(key, version=version)
-        if value is None:
-            raise ValueError("Key '%s' not found" % key)
-        new_value = value + delta
-        self.set(key, new_value, version=version)
-        return new_value
-
-    def decr(self, key, delta=1, version=None):
-        """
-        Subtract delta from value in the cache. If the key does not exist, raise
-        a ValueError exception.
-        """
-        return self.incr(key, -delta, version=version)
-
-    def __contains__(self, key):
-        """
-        Returns True if the key is in the cache and has not expired.
-        """
-        # This is a separate method, rather than just a copy of has_key(),
-        # so that it always has the same functionality as has_key(), even
-        # if a subclass overrides it.
-        return self.has_key(key)
-
-    def set_many(self, data, timeout=DEFAULT_TIMEOUT, version=None):
-        """
-        Set a bunch of values in the cache at once from a dict of key/value
-        pairs.  For certain backends (memcached), this is much more efficient
-        than calling set() multiple times.
-
-        If timeout is given, that timeout will be used for the key; otherwise
-        the default cache timeout will be used.
-        """
-        for key, value in data.items():
-            self.set(key, value, timeout=timeout, version=version)
-
-    def delete_many(self, keys, version=None):
-        """
-        Delete a bunch of values in the cache at once. For certain backends
-        (memcached), this is much more efficient than calling delete() multiple
-        times.
+        一次删除多个键
+        :param keys:
+        :return:
         """
         for key in keys:
-            self.delete(key, version=version)
+            self.delete(key)
 
     def clear(self):
-        """Remove *all* values from the cache at once."""
-        raise NotImplementedError('subclasses of BaseCache must provide a clear() method')
-
-    def validate_key(self, key):
         """
-        Warn about keys that would not be portable to the memcached
-        backend. This encourages (but does not force) writing backend-portable
-        cache code.
+        清除缓存
+        请记住，并非所有缓存都支持完全清除缓存
+        :return:
         """
-        if len(key) > CACHE_MAX_KEY_LENGTH:
-            warnings.warn(
-                'Cache key will cause errors if used with memcached: %r '
-                '(longer than %s)' % (key, CACHE_MAX_KEY_LENGTH), CacheKeyWarning
-            )
-        for char in key:
-            if ord(char) < 33 or ord(char) == 127:
-                warnings.warn(
-                    'Cache key contains characters that will cause errors if '
-                    'used with memcached: %r' % key, CacheKeyWarning
-                )
-                break
-
-    def incr_version(self, key, delta=1, version=None):
-        """Adds delta to the cache version for the supplied key. Returns the
-        new version.
-        """
-        if version is None:
-            version = self.version
-
-        value = self.get(key, version=version)
-        if value is None:
-            raise ValueError("Key '%s' not found" % key)
-
-        self.set(key, value, version=version + delta)
-        self.delete(key, version=version)
-        return version + delta
-
-    def decr_version(self, key, delta=1, version=None):
-        """Subtracts delta from the cache version for the supplied key. Returns
-        the new version.
-        """
-        return self.incr_version(key, -delta, version)
-
-    def close(self, **kwargs):
-        """Close the cache connection"""
         pass
+
+    def inc(self, key, delta=1):
+        """
+        按delta增加一个键的值。 如果密钥尚不存在，则用delta进行初始化。
+        为了支持缓存，这是一个原子操作
+        :param key:
+        :param delta:
+        :return:
+        """
+        self.set(key, (self.get(key) or 0) + delta)
+
+    def dec(self, key, delta=1):
+        """
+        按delta增加一个键的值。 如果密钥不存在，则使用-delta进行初始化；
+        为了支持缓存，这是一个原子操作
+        :param key:
+        :param delta:
+        :return:
+        """
+        self.set(key, (self.get(key) or 0) - delta)
+
+    def close(self, *args, **kwargs):
+        """
+        关闭连接
+        :param kwargs:
+        :return:
+        """
+        pass
+
+    def cached(self, key, timeout=DEFAULT_TIMEOUT):
+        """
+        自定义缓存key
+        :param key:
+        :param timeout:
+        :return:
+        """
+        def decorator(f):
+            @functools.wraps(f)
+            async def decorated_function(*args, **kwargs):
+                cache_key = self.make_key(key)
+
+                try:
+                    cache_value = self.get(cache_key)
+                    if asyncio.iscoroutine(cache_value):
+                        cache_value = await cache_value
+
+                except Exception:
+                    logger.exception("Get cache error, Exception possibly due to cache backend")
+                    value = f(*args, **kwargs)
+                    if asyncio.iscoroutine(value):
+                        value = await value
+                    return value
+
+                if cache_value is not None:
+                    return cache_value
+
+                new_value = f(*args, **kwargs)
+                if asyncio.iscoroutine(new_value):
+                    new_value = await new_value
+
+                try:
+                    if asyncio.iscoroutinefunction(self.set):
+                        await self.set(cache_key, new_value, timeout=timeout)
+                    else:
+                        self.set(cache_key, new_value, timeout=timeout)
+                except Exception:
+                    logger.exception("Set cache error, Exception possibly due to cache backend")
+
+                finally:
+                    return new_value
+
+            return decorated_function
+        return decorator
+
+    def _memoize_make_cache_key(self, f, *args, **kwargs):
+            m_args = inspect.getfullargspec(f)[0]
+            module = f.__module__
+
+            if hasattr(f, '__qualname__'):
+                name = f.__qualname__
+            else:
+                klass = getattr(f, '__self__', None)
+
+                if klass and not inspect.isclass(klass):
+                    klass = klass.__class__
+
+                if not klass:
+                    klass = getattr(f, 'im_class', None)
+
+                if not klass:
+                    if m_args and args:
+                        if m_args[0] == 'self':
+                            klass = args[0].__class__
+                        elif m_args[0] == 'cls':
+                            klass = args[0]
+
+                if klass:
+                    name = klass.__name__ + '.' + f.__name__
+                else:
+                    name = f.__name__
+
+            fname = '.'.join((module, name))
+            fname = fname.translate(*null_control)
+
+            if callable(f):
+                keyargs, keykwargs = self._memoize_kwargs_to_args(f, *args, **kwargs)
+            else:
+                keyargs, keykwargs = args, kwargs
+
+            try:
+                updated = "{0}{1}{2}".format(fname, keyargs, keykwargs)
+            except AttributeError:
+                updated = "%s%s%s" % (fname, keyargs, keykwargs)
+
+            cache_key = hashlib.md5()
+            cache_key.update(updated.encode('utf-8'))
+            cache_key = base64.b64encode(cache_key.digest())[:16]
+            cache_key = cache_key.decode('utf-8')
+
+            return cache_key
+
+    @staticmethod
+    def _memoize_kwargs_to_args(f, *args, **kwargs):
+        new_args = []
+        arg_num = 0
+        argspec = inspect.getfullargspec(f)
+
+        args_len = len(argspec.args)
+        for i in range(args_len):
+            if i == 0 and argspec.args[i] in ('self', 'cls'):
+                arg = repr(args[0])
+                arg_num += 1
+            elif argspec.args[i] in kwargs:
+                arg = kwargs[argspec.args[i]]
+            elif arg_num < len(args):
+                arg = args[arg_num]
+                arg_num += 1
+            elif abs(i-args_len) <= len(argspec.defaults):
+                arg = argspec.defaults[i-args_len]
+                arg_num += 1
+            else:
+                arg = None
+                arg_num += 1
+            new_args.append(arg)
+
+        return tuple(new_args), {}
+
+    def memoize(self, timeout=DEFAULT_TIMEOUT):
+        """
+        请求参数也作为cache的key一部分
+        :param timeout:
+        :return:
+        """
+        def memoize(f):
+            @functools.wraps(f)
+            async def decorated_function(*args, **kwargs):
+                cache_key = self._memoize_make_cache_key(f, *args, **kwargs)
+                cache_key = self.make_key(cache_key)
+                try:
+                    cache_value = self.get(cache_key)
+                    if asyncio.iscoroutine(cache_value):
+                        cache_value = await cache_value
+
+                except Exception:
+                    logger.exception("Get cache error, Exception possibly due to cache backend")
+                    value = f(*args, **kwargs)
+                    if asyncio.iscoroutine(value):
+                        value = await value
+                    return value
+
+                if cache_value is not None:
+                    return cache_value
+
+                new_value = f(*args, **kwargs)
+                if asyncio.iscoroutine(new_value):
+                    new_value = await new_value
+
+                try:
+                    if asyncio.iscoroutinefunction(self.set):
+                        await self.set(cache_key, new_value, timeout=timeout)
+                    else:
+                        self.set(cache_key, new_value, timeout=timeout)
+                except Exception:
+                    logger.exception("Set cache error, Exception possibly due to cache backend")
+
+                finally:
+                    return new_value
+
+            return decorated_function
+
+        return memoize

@@ -5,8 +5,6 @@ from rest_framework.core.exceptions import ValidationError
 from rest_framework.utils.cached_property import cached_property
 from rest_framework.core.translation import gettext as _
 
-__author__ = 'caowenbin'
-
 __all__ = ('BaseFormSet', 'formset_factory', 'all_valid')
 
 # 默认表单集最小的数量

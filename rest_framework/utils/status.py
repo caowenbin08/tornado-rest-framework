@@ -2,7 +2,6 @@
 """
 http 状态码
 """
-__author__ = 'caowenbin'
 
 
 def is_informational(code):

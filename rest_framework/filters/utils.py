@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 from rest_framework.core.db import models
 from rest_framework.utils.constants import LOOKUP_SEP
-__author__ = 'caowenbin'
 
 
 def get_model_field(model, field_name):

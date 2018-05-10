@@ -3,7 +3,7 @@
 为翻译提供懒字符串的模块。
 
 """
-__author__ = 'caowenbin'
+
 
 
 class LazyString(object):

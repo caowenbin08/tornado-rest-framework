@@ -1,9 +1,7 @@
 # -*- coding: utf-8 -*-
-from rest_framework.core.compressors.base import BaseCompressor
-__author__ = 'caowenbin'
 
 
-class IdentityCompressor(BaseCompressor):
+class Handler:
     def compress(self, value):
         return value
 

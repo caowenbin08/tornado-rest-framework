@@ -2,10 +2,9 @@
 import lzma
 
 from rest_framework.core.exceptions import CompressorError
-from rest_framework.core.compressors.base import BaseCompressor
 
 
-class LzmaCompressor(BaseCompressor):
+class Handler:
     min_length = 100
     preset = 4
 

@@ -4,7 +4,7 @@ from rest_framework.conf import settings
 from rest_framework.core.db import models
 from rest_framework.core.script import Manager
 
-__author__ = 'caowenbin'
+
 
 MigrateCommand = Manager(usage="Database related commands")
 

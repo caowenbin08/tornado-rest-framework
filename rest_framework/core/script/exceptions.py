@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 
-__author__ = 'caowenbin'
-
 
 class CommandError(Exception):
     """

@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
 import msgpack
 
-from rest_framework.core.serializers.base import BaseSerializer
 
-
-class MSGPackSerializer(BaseSerializer):
+class Handler:
     def dumps(self, value):
         return msgpack.dumps(value)
 

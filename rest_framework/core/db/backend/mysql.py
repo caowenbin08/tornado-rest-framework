@@ -3,7 +3,7 @@ from rest_framework.lib.orm import connect
 from rest_framework.core.db import DEFAULT_DB_ALIAS
 
 
-class DatabaseWrapper(object):
+class DatabaseWrapper:
     def __init__(self, db_settings, alias=DEFAULT_DB_ALIAS):
         """
         :param db_settings: 为default的值

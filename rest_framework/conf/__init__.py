@@ -8,8 +8,6 @@ import os
 from rest_framework.conf import global_settings
 from rest_framework.utils.lazy import LazyObject, empty
 
-__author__ = 'caowenbin'
-
 
 ENVIRONMENT_VARIABLE = "TORNADO_REST_SETTINGS_MODULE"
 
@@ -59,7 +57,7 @@ class LazySettings(LazyObject):
         return self._wrapped is not empty
 
 
-class Settings(object):
+class Settings:
     def __init__(self, settings_module):
         """
         默认加载系统配置的

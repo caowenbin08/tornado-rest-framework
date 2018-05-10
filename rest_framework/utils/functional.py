@@ -17,8 +17,6 @@ try:
 except NotImplementedError:
     using_sysrandom = False
 
-__author__ = 'caowenbin'
-
 
 def add_metaclass(metaclass):
     """

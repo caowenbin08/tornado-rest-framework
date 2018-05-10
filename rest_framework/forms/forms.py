@@ -10,8 +10,6 @@ from rest_framework.utils.cached_property import cached_property
 from rest_framework.utils.functional import set_value
 from rest_framework.utils.constants import empty
 
-__author__ = 'caowenbin'
-
 __all__ = ['BaseForm', 'Form']
 
 

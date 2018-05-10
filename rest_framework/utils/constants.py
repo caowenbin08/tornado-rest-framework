@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import re
-__author__ = 'caowenbin'
+
 
 QUERY_TERMS = {
     'exact', 'iexact', 'contains', 'icontains', 'gt', 'gte', 'lt', 'lte', 'in',

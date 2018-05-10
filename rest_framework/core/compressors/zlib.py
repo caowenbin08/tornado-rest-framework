@@ -2,10 +2,9 @@
 import zlib
 
 from rest_framework.core.exceptions import CompressorError
-from rest_framework.core.compressors.base import BaseCompressor
 
 
-class ZlibCompressor(BaseCompressor):
+class Handler:
     min_length = 15
     preset = 6
 

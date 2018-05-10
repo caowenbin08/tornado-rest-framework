@@ -1,51 +1,28 @@
 # -*- coding: utf-8 -*-
+from importlib import import_module
 from threading import local
 
 from rest_framework.conf import settings
-from rest_framework.core.cache.backend.base import InvalidCacheBackendError
-from rest_framework.utils.functional import import_object
+from rest_framework.core.exceptions import ImproperlyConfigured
 
-__author__ = 'caowenbin'
-
-
-__all__ = [
-    'cache', 'DEFAULT_CACHE_ALIAS', 'InvalidCacheBackendError',
-    'CacheKeyWarning', 'BaseCache',
-]
 
 DEFAULT_CACHE_ALIAS = 'default'
 
 
-def _create_cache(backend, **kwargs):
+def _create_cache(cache_config, **kwargs):
     try:
-        # Try to get the CACHES entry for the given backend name first
-        try:
-            conf = settings.CACHES[backend]
-        except KeyError:
-            try:
-                import_object(backend)
-            except ImportError as e:
-                raise InvalidCacheBackendError("Could not find backend '%s': %s" % (backend, e))
-            location = kwargs.pop('LOCATION', '')
-            params = kwargs
-        else:
-            params = conf.copy()
-            params.update(kwargs)
-            backend = params.pop('BACKEND')
-            location = params.pop('LOCATION', '')
-        backend_cls = import_object(backend)
+        params = cache_config
+        params.update(kwargs)
+        backend = params.get('BACKEND')
+        location = params.get('LOCATION', '')
+        backend_module = import_module(backend)
     except ImportError as e:
-        raise InvalidCacheBackendError("Could not find backend '%s': %s" % (backend, e))
+        raise ImproperlyConfigured("Could not find backend '%s': %s" % (backend, e))
 
-    return backend_cls(location, params)
+    return backend_module.CacheWrapper(location, params)
 
 
-class CacheHandler(object):
-    """
-    A Cache Handler to manage access to Cache instances.
-
-    Ensures only one instance of each alias exists per thread.
-    """
+class CacheHandler:
     def __init__(self):
         self._caches = local()
 
@@ -57,12 +34,13 @@ class CacheHandler(object):
         except KeyError:
             pass
 
-        if alias not in settings.CACHES:
-            raise InvalidCacheBackendError(
+        cache_configs = settings.CACHES
+        if alias not in cache_configs:
+            raise ImproperlyConfigured(
                 "Could not find config for '%s' in settings.CACHES" % alias
             )
 
-        cache_backend = _create_cache(alias)
+        cache_backend = _create_cache(cache_configs[alias])
         self._caches.caches[alias] = cache_backend
         return cache_backend
 
@@ -73,13 +51,7 @@ class CacheHandler(object):
 caches = CacheHandler()
 
 
-class DefaultCacheProxy(object):
-    """
-    Proxy access to the default Cache object's attributes.
-
-    This allows the legacy `cache` object to be thread-safe using the new
-    ``caches`` API.
-    """
+class DefaultCacheProxy:
     def __getattr__(self, name):
         return getattr(caches[DEFAULT_CACHE_ALIAS], name)
 
