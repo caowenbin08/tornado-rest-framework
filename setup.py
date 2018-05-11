@@ -7,7 +7,7 @@ HERE = abspath(dirname(__file__))
 with open(join(HERE, 'VERSION'), 'rb') as f:
     version = f.read().decode('ascii').strip()
 
-with open(join(HERE, "requirements.txt"), encoding='utf-8') as f:
+with open(join(HERE, "requirements.txt"), "rb") as f:
     REQUIRES = f.readlines()
 
 
