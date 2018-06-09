@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='tornado-rest-framework',
-    version="0.1.1",
+    version="0.1.2",
     keywords=("tornado", "asyncio", "rest api", "python3"),
     description='Tornado Rest Framework',
     long_description="Tornado Rest Framework",
@@ -24,9 +24,9 @@ setup(
     ]},
     install_requires=[
         "tornado>=4.5.2",
-        "pytz",
+        "pytz>=2017.3",
         "blinker>=1.4",
         "Babel>=2.5.1",
-        "ujson"
+        "ujson>=1.35"
     ]
 )
