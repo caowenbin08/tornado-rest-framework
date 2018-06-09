@@ -1,4 +1,4 @@
-from .peewee import Model, ModelAlias, IntegrityError
+from .peewee import Model, ModelAlias, IntegrityError, ModificationDateTimeField
 from .query import (
     AsyncSelectQuery,
     AsyncUpdateQuery,
@@ -42,6 +42,10 @@ class AsyncModel(Model):
     @classmethod
     def update(cls, __data=None, **update):
         fdict = __data or {}
+        for f in cls._meta.sorted_fields:
+            if isinstance(f, ModificationDateTimeField) and f.auto_now:
+                fdict[f] = None
+
         fdict.update([(cls._meta.fields[f], update[f]) for f in update])
         return AsyncUpdateQuery(cls, fdict)
 

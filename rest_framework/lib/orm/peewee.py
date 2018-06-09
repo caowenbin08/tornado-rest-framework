@@ -22,11 +22,13 @@ from collections import deque
 from collections import namedtuple
 from collections import OrderedDict
 from logging import NullHandler
-
 try:
     import pymysql as mysql
 except ImportError:
     mysql = None
+import pytz
+
+utc = pytz.utc
 
 
 def format_date_time(value, formats, post_process=None):
@@ -1149,6 +1151,28 @@ class DateTimeField(_BaseFormattedField):
     hour = property(_date_part('hour'))
     minute = property(_date_part('minute'))
     second = property(_date_part('second'))
+
+
+class ModificationDateTimeField(DateTimeField):
+    """
+    自定义的自动更新的变更字段
+    """
+    def __init__(self, auto_now=True, time_zone="UTC", *args, **kwargs):
+        self.auto_now = auto_now
+        self.time_zone = time_zone
+        if auto_now is True:
+            kwargs.setdefault("default", self.now)
+        super(ModificationDateTimeField, self).__init__(*args, **kwargs)
+
+    def now(self):
+        now_time = datetime.datetime.now(tz=utc)
+        to_zone = pytz.timezone(self.time_zone)
+        return now_time.astimezone(to_zone)
+
+    def db_value(self, value):
+        if self.auto_now:
+            value = self.now()
+        return super().db_value(value)
 
 
 class DateField(_BaseFormattedField):

@@ -20,6 +20,7 @@ MODEL_FORM_FIELD_MAPPINGS = {
     models.CharField: CharField,
     models.FixedCharField: CharField,
     models.TextField: CharField,
+    models.ModificationDateTimeField: DateTimeField,
     models.DateTimeField: DateTimeField,
     models.IntegerField: IntegerField,
     models.BooleanField: BooleanField,

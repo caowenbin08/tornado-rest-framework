@@ -1011,6 +1011,7 @@ class PasswordField(CharField):
                            bcrypt
 
         :param level: 密码加密级别
+                       any      任何版本，不限制
                        number   数字版本，6位数字密码
                        normal   普通版本，6-18位英文数字混合密码
                        high     增强版本，6-18位必须包含大小写字母/数字/符号任意两者组合密码
@@ -1019,7 +1020,7 @@ class PasswordField(CharField):
         """
         if protection != "default":
             assert protection in hashers.get_hashers_by_algorithm().keys(), "protection不正确"
-        assert level in ("number", "normal", "high"), "level不正确"
+        assert level in ('any', "number", "normal", "high"), "level不正确"
         self.protection = protection.lower()
         self.level = level.lower()
         super(PasswordField, self).__init__(*args, **kwargs)

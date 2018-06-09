@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2018-01-03 20:14+0800\n"
+"POT-Creation-Date: 2018-06-09 15:13+0800\n"
 "PO-Revision-Date: 2018-01-02 20:29+0800\n"
 "Last-Translator: \n"
 "Language: zh_Hans_CN\n"
@@ -18,215 +18,322 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.5.1\n"
 
-#: core/exceptions.py:234
+#: core/exceptions.py:116
 msgid "A server error occurred"
 msgstr "服务器异常"
 
-#: core/exceptions.py:269
+#: core/exceptions.py:153
+msgid "Invalid input."
+msgstr "请求参数非法"
+
+#: core/exceptions.py:175
 msgid "Malformed request"
 msgstr "请求数据解析失败"
 
-#: core/exceptions.py:278
+#: core/exceptions.py:184
 msgid "Invalid page"
 msgstr "无效页码"
 
-#: core/pagination.py:161
+#: core/pagination.py:180
 msgid "The page number must be a number or page string"
 msgstr "页码必须是​​数字或页码简称字符串标记"
 
-#: core/pagination.py:167
+#: core/pagination.py:186
 msgid "The page number must be greater than 1"
 msgstr "页码必须大于1"
 
-#: core/pagination.py:174
+#: core/pagination.py:193
 msgid "The page number exceeds the total page number"
 msgstr "页码超过了总页码"
 
-#: core/validators.py:17
+#: core/validators.py:15
 msgid "Enter a valid value"
 msgstr "请输入一个有效值"
 
-#: core/validators.py:85 forms/fields.py:599
+#: core/validators.py:83 forms/fields.py:618
 msgid "Enter a valid URL"
 msgstr "请输入有效的网址URL"
 
-#: core/validators.py:138
+#: core/validators.py:136
 msgid "Enter a valid integer"
 msgstr "请输入一个有效的整数"
 
-#: core/validators.py:148 core/validators.py:556
+#: core/validators.py:146 core/validators.py:562
 msgid "Enter a valid email address"
 msgstr "请输入有效的邮箱地址"
 
-#: core/validators.py:222
+#: core/validators.py:220
 msgid "Enter a valid IPv4 or IPv6 address"
 msgstr "请输入有效的IPv4或IPv6地址"
 
-#: core/validators.py:223
+#: core/validators.py:221
 msgid "Enter a valid IPv4 address"
 msgstr "请输入有效的IPv4地址"
 
-#: core/validators.py:224
+#: core/validators.py:222
 msgid "Enter a valid IPv6 address"
 msgstr "请输入有效的IPv6地址"
 
-#: core/validators.py:311
+#: core/validators.py:309
 #, python-format
 msgid "Ensure this value is %(limit_value)s (it is %(show_value)s)"
 msgstr "确保等于 %(limit_value)s（目前是%(show_value)s）"
 
-#: core/validators.py:341
+#: core/validators.py:339
 #, python-format
 msgid "Ensure this value is less than or equal to %(limit_value)s"
 msgstr "确保小于或等于%(limit_value)s"
 
-#: core/validators.py:349
+#: core/validators.py:347
 #, python-format
 msgid "Ensure this value is greater than or equal to %(limit_value)s"
 msgstr "确保大于或等于%(limit_value)s"
 
-#: core/validators.py:357
+#: core/validators.py:355
 #, python-format
 msgid ""
 "Ensure this value has at least %(limit_value)d character (it has "
 "%(show_value)d)"
 msgstr "确保至少有 %(limit_value)d 字符（目前是 %(show_value)d）"
 
-#: core/validators.py:368
+#: core/validators.py:366
 #, python-format
 msgid ""
 "Ensure this value has at most %(limit_value)d character (it has "
 "%(show_value)d)"
 msgstr "确保最多 %(limit_value)d 字符（目前是 %(show_value)d）"
 
-#: core/validators.py:384
+#: core/validators.py:382
 #, python-format
 msgid "Ensure that there are no more than %(max)s digit in total"
 msgstr "确保总共不超过 %(max)s 位数 "
 
-#: core/validators.py:385
+#: core/validators.py:383
 #, python-format
 msgid "Ensure that there are no more than %(max)s decimal place"
 msgstr "确保没有超过 %(max)s 的小数点位数"
 
-#: core/validators.py:386
+#: core/validators.py:384
 #, python-format
 msgid "Ensure that there are no more than %(max)s digit before the decimal point"
 msgstr "确保小数点前不超过 %(max)s 位数"
 
-#: core/validators.py:437
+#: core/validators.py:435
 #, python-format
 msgid ""
 "File extension '%(extension)s' is not allowed. Allowed extensions are: "
 "'%(allowed_extensions)s'."
 msgstr "文件扩展名 '%(extension)s' 是不允许的。 允许的扩展名是：'%(allowed_extensions)s'"
 
-#: core/validators.py:522 core/validators.py:555
+#: core/validators.py:474
+msgid "Enter a valid 6-digit password"
+msgstr "输入一个有效的6位数字密码"
+
+#: core/validators.py:475
+msgid "Enter a valid 6-18-digit alphanumeric password"
+msgstr "输入一个有效的6-18位英文数字混合密码"
+
+#: core/validators.py:476
+msgid ""
+"Enter a 6-18 bit must contain any combination of upper and lower case "
+"letters, numbers, symbols password"
+msgstr "输入一个6-18位必须包含大小写字母、数字、符号任意两者组合密码"
+
+#: core/validators.py:528 core/validators.py:561
 msgid "Enter a valid phone number"
 msgstr "请输入有效的手机号码"
 
-#: core/validators.py:554
+#: core/validators.py:560
 msgid "Enter a valid phone number or email address"
 msgstr "输入有效的手机号码或电子邮件地址"
 
-#: forms/fields.py:43 forms/validators.py:89
+#: forms/fields.py:48 forms/validators.py:93
 msgid "This field is required"
 msgstr "此字段为必填栏"
 
-#: forms/fields.py:247
+#: forms/fields.py:49
+msgid "This field may not be null"
+msgstr "该字段必填"
+
+#: forms/fields.py:243
 msgid "Not a valid string"
 msgstr "请输入有效的字符串"
 
-#: forms/fields.py:279
+#: forms/fields.py:275
 msgid "Enter a whole number"
-msgstr ""
+msgstr "请输入一个整数"
 
-#: forms/fields.py:309 forms/fields.py:338
+#: forms/fields.py:305 forms/fields.py:334
 msgid "Enter a number"
 msgstr "请输入一个整数"
 
-#: forms/fields.py:410 forms/fields.py:927
+#: forms/fields.py:411
+#, python-format
+msgid ""
+"%(datetime)s couldn't be interpreted in time zone %(current_timezone)s; "
+"it may be ambiguous or it may not exist."
+msgstr "`%(datetime)s`不能在时区`%(current_timezone)s`中解释，它可能不明确或者可能不存在"
+
+#: forms/fields.py:429
 msgid "Enter a valid date"
 msgstr "请输入一个有效的日期"
 
-#: forms/fields.py:433 forms/fields.py:928
+#: forms/fields.py:452
 msgid "Enter a valid time"
 msgstr "输入一个有效的时间"
 
-#: forms/fields.py:454
+#: forms/fields.py:473
 msgid "Enter a valid date/time"
 msgstr "请输入有效的日期/时间"
 
-#: forms/fields.py:485
+#: forms/fields.py:504
 msgid "No file was submitted， Check the encoding type on the form"
-msgstr ""
+msgstr "未提交文件，请检查表单上的编码类型"
 
-#: forms/fields.py:486
+#: forms/fields.py:505
 msgid "No file was submitted"
-msgstr ""
+msgstr "没有提交文件"
 
-#: forms/fields.py:487
+#: forms/fields.py:506
 msgid "The submitted file is empty"
-msgstr ""
+msgstr "提交的文件是空的"
 
-#: forms/fields.py:488
+#: forms/fields.py:507
 #, python-format
 msgid "Ensure this filename has at most %(max)d character (it has %(length)d)"
-msgstr ""
+msgstr "确保这个文件名最多有%(max)d个字符（它有%(length)d个）"
 
-#: forms/fields.py:489
+#: forms/fields.py:508
 msgid "Please either submit a file or check the clear checkbox, not both"
-msgstr ""
+msgstr "请提交一个文件或选中清除复选框，而不是两个"
 
-#: forms/fields.py:549
+#: forms/fields.py:568
 msgid ""
 "Upload a valid image. The file you uploaded was either not an image or a "
 "corrupted image"
-msgstr ""
+msgstr "上传有效的图片，可能您上传的文件不是图像或损坏的图像"
 
-#: forms/fields.py:638 forms/fields.py:674
-msgid "\"{input}\" is not a valid boolean"
-msgstr "\"{input}\" 不是有效的布尔值"
+#: forms/fields.py:657 forms/fields.py:693
+#, python-format
+msgid "\"%s\" is not a valid boolean"
+msgstr "`%s`不是一个有效的Boolean类型值"
 
-#: forms/fields.py:720
-msgid "\"{input}\" is not a valid choice"
-msgstr ""
+#: forms/fields.py:739
+#, python-format
+msgid "\"%(input)s\" is not a valid choice"
+msgstr "`%(input)s`不是一个有效的Choice类型值"
 
-#: forms/fields.py:721 forms/fields.py:776
+#: forms/fields.py:740
 msgid "Enter a list of values"
 msgstr "输入值的列表"
 
-#: forms/fields.py:777
-msgid "Enter a complete value"
-msgstr "输入一个完整的值"
+#: forms/fields.py:788
+#, python-format
+msgid "Expected a list of items but got type \"%(input_type)s\""
+msgstr "必须是list类型，而不是`%(input_type)s`类型"
 
-#: forms/fields.py:961
+#: forms/fields.py:789
+msgid "This list may not be empty"
+msgstr "列表不能为空"
+
+#: forms/fields.py:790
+msgid "Ensure this field has at least {min_length} elements"
+msgstr "确保此字段至少有{min_length}元素"
+
+#: forms/fields.py:791
+msgid "Ensure this field has no more than {max_length} elements"
+msgstr "确保此字段不超过{max_length}元素"
+
+#: forms/fields.py:838
+#, python-format
+msgid "Expected a dictionary of items but got type \"%(input_type)s\""
+msgstr "必须是dict类型，而不是`%(input_type)s`类型"
+
+#: forms/fields.py:958
 msgid "Enter a valid UUID"
 msgstr "请输入有效的uuid"
 
-#: forms/fields.py:1003
+#: forms/fields.py:1000
 msgid "Please enter a valid password"
 msgstr "请输入有效的密码"
 
-#: forms/fields.py:1049
+#: forms/fields.py:1047
 msgid "Please enter a valid phone number or email address"
 msgstr "请输入有效的电话号码或电子邮件地址"
 
-#: forms/models.py:241
+#: forms/fields.py:1106
+#, python-format
+msgid "Expected a list or dictionary of items but got type \"%(input_type)s\""
+msgstr "必须是list或dict类型，而不是`%(input_type)s`类型"
+
+#: forms/fields.py:1107
+msgid "This value not be empty"
+msgstr "此值不能为空"
+
+#: forms/formsets.py:114
+#, python-format
+msgid "Please submit %d or fewer forms"
+msgstr "最多可同时提交%d个表单"
+
+#: forms/formsets.py:120
+#, python-format
+msgid "Please submit %d or more forms"
+msgstr "至少同时提交%d个表单数据"
+
+#: forms/models.py:251
 msgid "The form has errors"
 msgstr "表单含有错误信息"
 
-#: forms/validators.py:14
+#: forms/validators.py:13
 #, python-format
-msgid "This field (%(field_name)s) value must be unique"
-msgstr "字段 (%(field_name)s) 值重复"
+msgid "This field (`%(field_name)s`) value must be unique"
+msgstr "此字段(`%(field_name)s`)的值必须唯一性"
 
-#: forms/validators.py:87
+#: forms/validators.py:91
+#, python-format
 msgid ""
-"Resource data already exists. The reason is that {field_names} "
+"Resource data already exists. The reason is that (%(field_names)s) "
 "constitutes a unique index"
-msgstr "资源数据已经存在，原因由字段 {field_names} 组成唯一约束"
+msgstr "资源数据已经存在，可能由(%(field_names)s)字段构成的联合唯一索引约束引起"
 
-#: views/generics.py:223
-msgid "Not found"
-msgstr "数据不存在"
+#: views/generics.py:175
+msgid "Internal Server Error"
+msgstr "服务器异常"
+
+#: views/generics.py:243
+msgid "The request method does not exist"
+msgstr "该请求处理方式类型不支持"
+
+#: views/generics.py:247
+msgid "Http Error"
+msgstr "请求异常"
+
+#: views/generics.py:258
+msgid "Insert failed, the reason may be foreign key constraints"
+msgstr "插入数据失败，可能脏数据或外键约束引起的"
+
+#: views/generics.py:378 views/generics.py:391
+msgid "Resource data does not exist"
+msgstr "请求资源数据不存在"
+
+#~ msgid "\"{input}\" is not a valid boolean"
+#~ msgstr "\"{input}\" 不是有效的布尔值"
+
+#~ msgid "\"{input}\" is not a valid choice"
+#~ msgstr ""
+
+#~ msgid "Enter a complete value"
+#~ msgstr "输入一个完整的值"
+
+#~ msgid "This field (%(field_name)s) value must be unique"
+#~ msgstr "字段 (%(field_name)s) 值重复"
+
+#~ msgid ""
+#~ "Resource data already exists. The reason"
+#~ " is that {field_names} constitutes a "
+#~ "unique index"
+#~ msgstr "资源数据已经存在，原因由字段 {field_names} 组成唯一约束"
+
+#~ msgid "Not found"
+#~ msgstr "数据不存在"
+

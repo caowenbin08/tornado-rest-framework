@@ -471,13 +471,14 @@ class PasswordValidator(object):
     密码是否合法
     """
     message = {
-        "number": "输入一个有效的6位数字密码",
-        "normal": "输入一个有效的6-18位英文数字混合密码",
-        "high": "输入一个6-18位必须包含大小写字母/数字/符号任意两者组合密码"
+        "number": _("Enter a valid 6-digit password"),
+        "normal": _("Enter a valid 6-18-digit alphanumeric password"),
+        "high": _("Enter a 6-18 bit must contain any combination of "
+                  "upper and lower case letters, numbers, symbols password")
     }
     code = 'invalid'
 
-    def __init__(self, level="number", message=None, code=None):
+    def __init__(self, level="number", message=None, code=None, regex=None):
         self.level = level
 
         if message is not None:
@@ -485,6 +486,10 @@ class PasswordValidator(object):
 
         if code is not None:
             self.code = code
+
+        self.password_regex = lazy_re_compile(regex, flags=re.IGNORECASE) \
+            if regex is not None else None
+
         if self.level == "number":
             self.password_regex = lazy_re_compile(r"^\d{6}$", flags=re.IGNORECASE)
         elif self.level == "normal":
@@ -495,6 +500,9 @@ class PasswordValidator(object):
             self.password_regex = lazy_re_compile(re_str, flags=re.IGNORECASE)
 
     def __call__(self, value):
+        if self.level == "any" or self.self.password_regex is None:
+            return
+
         valid = self.password_regex.match(value)
 
         if not valid:
