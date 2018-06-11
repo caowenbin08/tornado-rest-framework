@@ -500,7 +500,7 @@ class PasswordValidator(object):
             self.password_regex = lazy_re_compile(re_str, flags=re.IGNORECASE)
 
     def __call__(self, value):
-        if self.level == "any" or self.self.password_regex is None:
+        if self.level == "any" or self.password_regex is None:
             return
 
         valid = self.password_regex.match(value)
