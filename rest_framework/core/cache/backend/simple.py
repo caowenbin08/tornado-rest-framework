@@ -54,3 +54,10 @@ class CacheWrapper(BaseCache):
 
     async def clear(self):
         self._cache.clear()
+
+    async def clear_keys(self, key_prefix):
+        key = self.make_key(key_prefix)
+        del_keys = [k for k in self._cache.keys() if k.startswith(key)]
+        for k in del_keys:
+            self._cache.pop(k, None)
+        return len(del_keys)

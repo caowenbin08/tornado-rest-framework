@@ -71,6 +71,8 @@ class CacheWrapper(BaseCache):
         timeout = self.get_backend_timeout(timeout)
         key = self.make_key(key)
         with await (await self.client) as client:
+            if timeout is None:
+                return await client.set(key, self.encode(value))
             return await client.setex(key, timeout, self.encode(value))
 
     async def add(self, key, value, timeout=DEFAULT_TIMEOUT):
@@ -78,7 +80,7 @@ class CacheWrapper(BaseCache):
         key = self.make_key(key)
         with await (await self.client) as client:
             added = await client.setnx(key, self.encode(value))
-            if added and timeout:
+            if added and timeout is not None:
                 await client.expire(key, timeout)
 
     async def set_many(self, mapping, timeout=DEFAULT_TIMEOUT):
@@ -122,6 +124,18 @@ class CacheWrapper(BaseCache):
         key = self.make_key(key)
         with await (await self.client) as client:
             return await client.decrby(key, delta)
+
+    async def clear_keys(self, key_prefix):
+        """
+        根据key前缀清空对应的key值
+        :param key_prefix:
+        :return:
+        """
+        with await (await self.client) as client:
+            keys = await client.keys(self.make_key('%s*' % key_prefix))
+            if keys:
+                return await client.delete(*keys)
+            return 0
 
     async def clear(self):
         with await (await self.client) as client:
