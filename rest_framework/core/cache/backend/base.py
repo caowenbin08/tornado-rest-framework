@@ -37,7 +37,9 @@ class BaseCache:
         if data is None:
             return None
 
-        if not isinstance(data, (bool, int, float)):
+        try:
+            data = int(data)
+        except (ValueError, TypeError):
             try:
                 data = self._compressor.decompress(data)
             except CompressorError:
