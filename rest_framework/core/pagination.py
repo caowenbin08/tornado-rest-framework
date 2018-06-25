@@ -6,7 +6,7 @@ from math import ceil
 from urllib import parse
 from collections import OrderedDict
 from rest_framework.core.response import Response
-from rest_framework.core.translation import gettext as _
+from rest_framework.core.translation import lazy_translate as _
 from rest_framework.core.exceptions import PaginationError
 from rest_framework.lib.orm.query import AsyncEmptyQuery
 from rest_framework.utils.cached_property import cached_property, async_cached_property

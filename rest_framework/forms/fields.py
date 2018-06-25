@@ -14,7 +14,7 @@ from urllib.parse import urlsplit, urlunsplit
 from decimal import Decimal, DecimalException
 
 from rest_framework.conf import settings
-from rest_framework.core.translation import gettext as _
+from rest_framework.core.translation import lazy_translate as _
 from rest_framework.core import validators
 from rest_framework.forms.formsets import formset_factory
 from rest_framework.utils import functional

@@ -2,7 +2,7 @@
 import asyncio
 from rest_framework.core.db import models
 from rest_framework.core.exceptions import ValidationError
-from rest_framework.core.translation import gettext as _
+from rest_framework.core.translation import lazy_translate as _
 
 
 class UniqueValidator(object):

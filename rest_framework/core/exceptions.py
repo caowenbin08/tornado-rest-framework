@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from rest_framework.utils import status
-from rest_framework.core.translation import gettext as _
+from rest_framework.core.translation import lazy_translate as _
 from rest_framework.utils.transcoder import force_text
 
 

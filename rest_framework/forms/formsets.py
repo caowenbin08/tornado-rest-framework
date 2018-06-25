@@ -3,7 +3,7 @@
 from rest_framework.conf import settings
 from rest_framework.core.exceptions import ValidationError
 from rest_framework.utils.cached_property import cached_property
-from rest_framework.core.translation import gettext as _
+from rest_framework.core.translation import lazy_translate as _
 
 __all__ = ('BaseFormSet', 'formset_factory', 'all_valid')
 

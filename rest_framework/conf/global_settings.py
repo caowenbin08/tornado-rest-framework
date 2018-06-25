@@ -24,6 +24,7 @@ CACHES = {
 }
 # 语言
 LANGUAGE_CODE = 'en_US'
+LANGUAGE_DOMAIN = "messages"
 LANGUAGE_PATHS = []
 # 数据库配置
 DATABASES = {}

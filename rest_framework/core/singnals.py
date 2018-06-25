@@ -44,4 +44,4 @@ class WeakNamespace(WeakValueDictionary):
 
 signal = Namespace().signal
 app_closed = signal("app-closed")
-
+app_started = signal("app-started")

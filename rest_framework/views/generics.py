@@ -3,14 +3,12 @@ import re
 import asyncio
 
 from tornado import gen
-from tornado import httputil
 from tornado import iostream
 from tornado.log import app_log, gen_log
 from tornado.web import RequestHandler, HTTPError
 
 from rest_framework.core import exceptions
 from rest_framework.core.exceptions import APIException, ErrorDetail, SkipFilterError
-from rest_framework.core.translation import locale
 from rest_framework.lib.orm import IntegrityError
 from rest_framework.views import mixins
 from rest_framework.conf import settings
@@ -21,8 +19,7 @@ from rest_framework.utils.cached_property import cached_property
 from rest_framework.utils.functional import import_object
 from rest_framework.core.parsers import get_parsers
 from rest_framework.core.response import Response
-from rest_framework.views.mixins import BabelTranslatorMixin
-from rest_framework.core.translation import gettext as _
+from rest_framework.core.translation import lazy_translate as _, babel
 
 __all__ = [
     'GenericAPIHandler',
@@ -58,7 +55,7 @@ def _has_stream_request_body(cls):
     return getattr(cls, '_stream_request_body', False)
 
 
-class BaseAPIHandler(RequestHandler, BabelTranslatorMixin):
+class BaseAPIHandler(RequestHandler):
     """
     基础接口处理类
     """
@@ -77,6 +74,7 @@ class BaseAPIHandler(RequestHandler, BabelTranslatorMixin):
         继承重写，主要解析json数据，请求可以直接self.json_data获取请求数据
         :return:
         """
+        self.parse_user_language()
         self._load_data_and_files()
         return super(BaseAPIHandler, self).prepare()
 
@@ -97,6 +95,12 @@ class BaseAPIHandler(RequestHandler, BabelTranslatorMixin):
         return {k: [force_text(v) for v in vs] if len(vs) > 1 else force_text(vs[-1])
                 for k, vs in query_arguments.items() if vs}
 
+    def parse_user_language(self):
+        languages = self.request.headers.get("Accept-Language")
+        if languages is not None:
+            language = languages.split(",")[0]
+            babel.refresh_locale(language)
+
     def _load_data_and_files(self):
         """
         解析请求参数
@@ -113,7 +117,7 @@ class BaseAPIHandler(RequestHandler, BabelTranslatorMixin):
 
         parser = self.select_parser()
         if not parser:
-            error_detail = 'Unsupported media type "%s" in request' % content_type
+            error_detail = _('Unsupported media type `%s` in request') % content_type
             raise APIException(error_detail, status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE)
 
         self.request_data = parser.parse(self.request)
@@ -170,9 +174,8 @@ class BaseAPIHandler(RequestHandler, BabelTranslatorMixin):
                 self._handle_request_exception(e)
             except Exception:
                 app_log.error("Exception in exception handler", exc_info=True)
-
                 error_response = self.write_response(
-                    data={'error_detail': _("Internal Server Error")},
+                    data={settings.NON_FIELD_ERRORS: _("Internal Server Error")},
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
                 self.write_error(error_response)
@@ -205,14 +208,6 @@ class BaseAPIHandler(RequestHandler, BabelTranslatorMixin):
         exc = kwargs['exc_info'][1] if 'exc_info' in kwargs else None
         error_response = self.handle_exception(exc)
 
-        if error_response is None:
-            try:
-                data = {'error_detail': httputil.responses[status_code]}
-            except KeyError:
-                raise ValueError("unknown status code %d" % status_code)
-
-            error_response = Response(data, status_code=status_code)
-
         try:
             self.write_error(error_response)
         except Exception as exc:
@@ -232,24 +227,15 @@ class BaseAPIHandler(RequestHandler, BabelTranslatorMixin):
         :param exc:
         :return:
         """
-        error_response = None
         if isinstance(exc, (exceptions.APIException, exceptions.ValidationError)):
             error_response = self.write_response(data=exc.detail, status_code=exc.status_code)
 
         elif isinstance(exc, HTTPError):
             status_code = exc.status_code
-            if status_code == status.HTTP_405_METHOD_NOT_ALLOWED:
-                error_detail = ErrorDetail(
-                    _('The request method does not exist'), code="method_not_allowed"
-                )
-            else:
-                error_detail = ErrorDetail(
-                    "%s. Reason: %s " % (_('Http Error'), exc.reason),
-                    code="http_error"
-                )
-
+            http_code_detail = status.HTTP_CODES.get(status_code, None)
             error_response = self.write_response(
-                data={settings.NON_FIELD_ERRORS: error_detail},
+                data={settings.NON_FIELD_ERRORS: http_code_detail.description if http_code_detail
+                      else _("Internal Server Error")},
                 status_code=exc.status_code
             )
 
@@ -261,6 +247,11 @@ class BaseAPIHandler(RequestHandler, BabelTranslatorMixin):
             error_response = self.write_response(
                 data={settings.NON_FIELD_ERRORS: error_detail},
                 status_code=status.HTTP_400_BAD_REQUEST
+            )
+        else:
+            error_response = self.write_response(
+                data={settings.NON_FIELD_ERRORS: _("Internal Server Error")},
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
         return error_response
@@ -274,10 +265,6 @@ class BaseAPIHandler(RequestHandler, BabelTranslatorMixin):
         return self.write(response.data)
 
     def get_user_locale(self):
-        if self.current_user:
-            return locale.get(self.current_user.locale)
-
-        # Fallback to browser based locale detection
         return self.get_browser_locale()
 
 

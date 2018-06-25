@@ -3,7 +3,6 @@ import asyncio
 from rest_framework import serializers
 from rest_framework.core.exceptions import SkipFilterError
 from rest_framework.lib.orm.query import AsyncEmptyQuery
-from rest_framework.core.translation import locale, make_lazy_gettext
 from rest_framework.utils import status
 
 
@@ -16,7 +15,7 @@ __all__ = [
 ]
 
 
-class CreateModelMixin(object):
+class CreateModelMixin:
     """
     创建
     """
@@ -63,7 +62,7 @@ class CreateModelMixin(object):
         self.serializer_class = Serializer
 
 
-class ListModelMixin(object):
+class ListModelMixin:
     """
     分页查询列表
     """
@@ -83,7 +82,7 @@ class ListModelMixin(object):
         return self.write_response(await serializer.data)
 
 
-class RetrieveModelMixin(object):
+class RetrieveModelMixin:
     """
     查看详情
     """
@@ -93,7 +92,7 @@ class RetrieveModelMixin(object):
         return self.write_response(await serializer.data)
 
 
-class UpdateModelMixin(object):
+class UpdateModelMixin:
     """
     修改实例对象
     """
@@ -135,7 +134,7 @@ class UpdateModelMixin(object):
         self.serializer_class = Serializer
 
 
-class DestroyModelMixin(object):
+class DestroyModelMixin:
     """
     删除对象
     """
@@ -148,39 +147,3 @@ class DestroyModelMixin(object):
         del_rows = await instance.delete_instance()
         return del_rows
 
-
-class BabelTranslatorMixin(object):
-    """
-    使用Babel国际化库包
-    如果应用程序处理语言环境，则应实现`get_user_locale`方法
-    """
-
-    @property
-    def _(self):
-        """
-        A helper to easily get lazy version ugettext
-        """
-        return make_lazy_gettext(lambda: self.locale.translate)
-
-    def get_browser_locale(self, default="en_US"):
-        """Determines the user's locale from Accept-Language header.
-
-        """
-        if "Accept-Language" in self.request.headers:
-            languages = self.request.headers["Accept-Language"].split(",")
-            locales = []
-            for language in languages:
-                parts = language.strip().split(";")
-                if len(parts) > 1 and parts[1].startswith("q="):
-                    try:
-                        score = float(parts[1][2:])
-                    except (ValueError, TypeError):
-                        score = 0.0
-                else:
-                    score = 1.0
-                locales.append((parts[0], score))
-            if locales:
-                locales.sort(key=lambda l, s: s, reverse=True)
-                codes = [l[0] for l in locales]
-                return locale.get(*codes)
-        return locale.get(default)

@@ -18,7 +18,7 @@ from tornado.platform.asyncio import AsyncIOMainLoop
 from rest_framework import conf
 from rest_framework.conf import settings
 from rest_framework.core.script.exceptions import CommandError
-from rest_framework.core.singnals import app_closed
+from rest_framework.core import singnals
 
 PATTERN = re.compile('^[a-zA-Z]+[a-zA-Z_]*[a-zA-Z]$')
 
@@ -396,13 +396,14 @@ class Server(Command):
         app = tornado.web.Application(urlpatterns, **app_settings)
         # xheaders 设为true,是获得设置代理也能获得客户端真正IP
         app.listen(port, xheaders=True)
+        singnals.app_started.send(self)
         print("http://0.0.0.0:{port}".format(port=port))
         try:
             loop.run_forever()
         except KeyboardInterrupt:
             sys.stderr.flush()
         finally:
-            app_closed.send(self)
+            singnals.app_closed.send(self)
             loop.stop()
             loop.run_until_complete(loop.shutdown_asyncgens())
             loop.close()

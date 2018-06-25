@@ -6,7 +6,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 from rest_framework.core.exceptions import ValidationError
 from rest_framework.utils.lazy import lazy_re_compile
-from rest_framework.core.translation import gettext as _
+from rest_framework.core.translation import lazy_translate as _
 from rest_framework.utils.transcoder import force_text
 
 
@@ -493,10 +493,11 @@ class PasswordValidator(object):
         if self.level == "number":
             self.password_regex = lazy_re_compile(r"^\d{6}$", flags=re.IGNORECASE)
         elif self.level == "normal":
-            self.password_regex = lazy_re_compile(r"^(?![0-9]+$)(?![a-zA-Z]+$)[0-9A-Za-z]{6,18}$", flags=re.IGNORECASE)
+            self.password_regex = lazy_re_compile(r"^(?![0-9]+$)(?![a-zA-Z]+$)[0-9A-Za-z]{6,18}$",
+                                                  flags=re.IGNORECASE)
         elif self.level == "high":
-            re_str = r"^(?![0-9]+$)(?![a-z]+$)(?![A-Z]+$)(?!([^(0-9a-zA-Z)]|[\(\)])+$)" \
-                     r"([^(0-9a-zA-Z)]|[\(\)]|[a-z]|[A-Z]|[0-9]){6,18}$"
+            re_str = r"^(?![0-9]+$)(?![a-z]+$)(?![A-Z]+$)(?!([^(0-9a-zA-Z\u4e00-\u9fa5\s)])+$)" \
+                     r"([^(0-9a-zA-Z\u4e00-\u9fa5\s)]|[a-z]|[A-Z]|[0-9]){6,18}$"
             self.password_regex = lazy_re_compile(re_str, flags=re.IGNORECASE)
 
     def __call__(self, value):
