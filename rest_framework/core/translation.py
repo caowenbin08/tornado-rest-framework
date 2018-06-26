@@ -185,6 +185,9 @@ class Babel:
         global _translations
         global _locale_caches
         for directory in self.translation_directories:
+            if not os.path.exists(directory):
+                continue
+
             for lang in os.listdir(directory):
                 if lang.startswith('.'):
                     continue
