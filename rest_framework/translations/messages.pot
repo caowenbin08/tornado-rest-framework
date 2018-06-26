@@ -1,0 +1,366 @@
+# Translations template for PROJECT.
+# Copyright (C) 2018 ORGANIZATION
+# This file is distributed under the same license as the PROJECT project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2018.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2018-06-25 20:42+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.5.1\n"
+
+#: core/exceptions.py:116
+msgid "A server error occurred"
+msgstr ""
+
+#: core/exceptions.py:153
+msgid "Invalid input."
+msgstr ""
+
+#: core/exceptions.py:175
+msgid "Malformed request"
+msgstr ""
+
+#: core/exceptions.py:184
+msgid "Invalid page"
+msgstr ""
+
+#: core/pagination.py:180
+msgid "The page number must be a number or page string"
+msgstr ""
+
+#: core/pagination.py:186
+msgid "The page number must be greater than 1"
+msgstr ""
+
+#: core/pagination.py:193
+msgid "The page number exceeds the total page number"
+msgstr ""
+
+#: core/validators.py:15
+msgid "Enter a valid value"
+msgstr ""
+
+#: core/validators.py:83 forms/fields.py:618
+msgid "Enter a valid URL"
+msgstr ""
+
+#: core/validators.py:136
+msgid "Enter a valid integer"
+msgstr ""
+
+#: core/validators.py:146 core/validators.py:563
+msgid "Enter a valid email address"
+msgstr ""
+
+#: core/validators.py:220
+msgid "Enter a valid IPv4 or IPv6 address"
+msgstr ""
+
+#: core/validators.py:221
+msgid "Enter a valid IPv4 address"
+msgstr ""
+
+#: core/validators.py:222
+msgid "Enter a valid IPv6 address"
+msgstr ""
+
+#: core/validators.py:309
+#, python-format
+msgid "Ensure this value is %(limit_value)s (it is %(show_value)s)"
+msgstr ""
+
+#: core/validators.py:339
+#, python-format
+msgid "Ensure this value is less than or equal to %(limit_value)s"
+msgstr ""
+
+#: core/validators.py:347
+#, python-format
+msgid "Ensure this value is greater than or equal to %(limit_value)s"
+msgstr ""
+
+#: core/validators.py:355
+#, python-format
+msgid ""
+"Ensure this value has at least %(limit_value)d character (it has "
+"%(show_value)d)"
+msgstr ""
+
+#: core/validators.py:366
+#, python-format
+msgid ""
+"Ensure this value has at most %(limit_value)d character (it has "
+"%(show_value)d)"
+msgstr ""
+
+#: core/validators.py:382
+#, python-format
+msgid "Ensure that there are no more than %(max)s digit in total"
+msgstr ""
+
+#: core/validators.py:383
+#, python-format
+msgid "Ensure that there are no more than %(max)s decimal place"
+msgstr ""
+
+#: core/validators.py:384
+#, python-format
+msgid "Ensure that there are no more than %(max)s digit before the decimal point"
+msgstr ""
+
+#: core/validators.py:435
+#, python-format
+msgid ""
+"File extension '%(extension)s' is not allowed. Allowed extensions are: "
+"'%(allowed_extensions)s'."
+msgstr ""
+
+#: core/validators.py:474
+msgid "Enter a valid 6-digit password"
+msgstr ""
+
+#: core/validators.py:475
+msgid "Enter a valid 6-18-digit alphanumeric password"
+msgstr ""
+
+#: core/validators.py:476
+msgid ""
+"Enter a 6-18 bit must contain any combination of upper and lower case "
+"letters, numbers, symbols password"
+msgstr ""
+
+#: core/validators.py:529 core/validators.py:562
+msgid "Enter a valid phone number"
+msgstr ""
+
+#: core/validators.py:561
+msgid "Enter a valid phone number or email address"
+msgstr ""
+
+#: forms/fields.py:48 forms/validators.py:93
+msgid "This field is required"
+msgstr ""
+
+#: forms/fields.py:49
+msgid "This field may not be null"
+msgstr ""
+
+#: forms/fields.py:243
+msgid "Not a valid string"
+msgstr ""
+
+#: forms/fields.py:275
+msgid "Enter a whole number"
+msgstr ""
+
+#: forms/fields.py:305 forms/fields.py:334
+msgid "Enter a number"
+msgstr ""
+
+#: forms/fields.py:411
+#, python-format
+msgid ""
+"%(datetime)s couldn't be interpreted in time zone %(current_timezone)s; "
+"it may be ambiguous or it may not exist."
+msgstr ""
+
+#: forms/fields.py:429
+msgid "Enter a valid date"
+msgstr ""
+
+#: forms/fields.py:452
+msgid "Enter a valid time"
+msgstr ""
+
+#: forms/fields.py:473
+msgid "Enter a valid date/time"
+msgstr ""
+
+#: forms/fields.py:504
+msgid "No file was submitted， Check the encoding type on the form"
+msgstr ""
+
+#: forms/fields.py:505
+msgid "No file was submitted"
+msgstr ""
+
+#: forms/fields.py:506
+msgid "The submitted file is empty"
+msgstr ""
+
+#: forms/fields.py:507
+#, python-format
+msgid "Ensure this filename has at most %(max)d character (it has %(length)d)"
+msgstr ""
+
+#: forms/fields.py:508
+msgid "Please either submit a file or check the clear checkbox, not both"
+msgstr ""
+
+#: forms/fields.py:568
+msgid ""
+"Upload a valid image. The file you uploaded was either not an image or a "
+"corrupted image"
+msgstr ""
+
+#: forms/fields.py:657 forms/fields.py:693
+#, python-format
+msgid "\"%s\" is not a valid boolean"
+msgstr ""
+
+#: forms/fields.py:739
+#, python-format
+msgid "\"%(input)s\" is not a valid choice"
+msgstr ""
+
+#: forms/fields.py:740
+msgid "Enter a list of values"
+msgstr ""
+
+#: forms/fields.py:788
+#, python-format
+msgid "Expected a list of items but got type \"%(input_type)s\""
+msgstr ""
+
+#: forms/fields.py:789
+msgid "This list may not be empty"
+msgstr ""
+
+#: forms/fields.py:790
+msgid "Ensure this field has at least {min_length} elements"
+msgstr ""
+
+#: forms/fields.py:791
+msgid "Ensure this field has no more than {max_length} elements"
+msgstr ""
+
+#: forms/fields.py:838
+#, python-format
+msgid "Expected a dictionary of items but got type \"%(input_type)s\""
+msgstr ""
+
+#: forms/fields.py:958
+msgid "Enter a valid UUID"
+msgstr ""
+
+#: forms/fields.py:1000
+msgid "Please enter a valid password"
+msgstr ""
+
+#: forms/fields.py:1047
+msgid "Please enter a valid phone number or email address"
+msgstr ""
+
+#: forms/fields.py:1106
+#, python-format
+msgid "Expected a list or dictionary of items but got type \"%(input_type)s\""
+msgstr ""
+
+#: forms/fields.py:1107
+msgid "This value not be empty"
+msgstr ""
+
+#: forms/formsets.py:114
+#, python-format
+msgid "Please submit %d or fewer forms"
+msgstr ""
+
+#: forms/formsets.py:120
+#, python-format
+msgid "Please submit %d or more forms"
+msgstr ""
+
+#: forms/models.py:251
+msgid "The form has errors"
+msgstr ""
+
+#: forms/validators.py:13
+#, python-format
+msgid "This field (`%(field_name)s`) value must be unique"
+msgstr ""
+
+#: forms/validators.py:91
+#, python-format
+msgid ""
+"Resource data already exists. The reason is that (%(field_names)s) "
+"constitutes a unique index"
+msgstr ""
+
+#: utils/status.py:67
+msgid "Request fulfilled, document follows"
+msgstr ""
+
+#: utils/status.py:68
+msgid "Document created, URL follows"
+msgstr ""
+
+#: utils/status.py:70
+msgid "Bad request syntax or unsupported method"
+msgstr ""
+
+#: utils/status.py:72
+msgid "No permission -- see authorization schemes"
+msgstr ""
+
+#: utils/status.py:74
+msgid "Request forbidden -- authorization will not help"
+msgstr ""
+
+#: utils/status.py:76
+msgid "Nothing matches the given URI"
+msgstr ""
+
+#: utils/status.py:78
+msgid "Specified method is invalid for this resource"
+msgstr ""
+
+#: utils/status.py:80
+msgid "Entity body in unsupported format"
+msgstr ""
+
+#: utils/status.py:82
+msgid "Server got itself in trouble"
+msgstr ""
+
+#: utils/status.py:84
+msgid "Invalid responses from another server/proxy"
+msgstr ""
+
+#: utils/status.py:86
+msgid "The server cannot process the request due to a high load"
+msgstr ""
+
+#: utils/status.py:88
+msgid "The gateway server did not receive a timely response"
+msgstr ""
+
+#: utils/status.py:90
+msgid "Cannot fulfill request"
+msgstr ""
+
+#: views/generics.py:120
+#, python-format
+msgid "Unsupported media type `%s` in request"
+msgstr ""
+
+#: views/generics.py:178 views/generics.py:238 views/generics.py:253
+msgid "Internal Server Error"
+msgstr ""
+
+#: views/generics.py:244
+msgid "Insert failed, the reason may be foreign key constraints"
+msgstr ""
+
+#: views/generics.py:365 views/generics.py:378
+msgid "Resource data does not exist"
+msgstr ""
+
