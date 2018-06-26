@@ -1,4 +1,2 @@
-include MANIFEST.in
-graft rest_framework
 global-exclude __pycache__
-global-exclude *.py[co]
+graft rest_framework

@@ -4,7 +4,6 @@ from setuptools import setup, find_packages
 setup(
     name='tornado-rest-framework',
     version="0.1.8",
-    python_requires=">=3.6",
     keywords=("tornado", "asyncio", "rest api", "python3"),
     description='Tornado Rest Framework',
     long_description="Tornado Rest Framework",
@@ -14,8 +13,7 @@ setup(
     download_url='https://github.com/caowenbin/tornado-rest-framework',
     license='BSD',
     packages=["rest_framework"],
-    data_files=(),
-    include_package_data=False,
+    include_package_data=True,
     zip_safe=False,
     classifiers=[
        'Programming Language :: Python :: 3.6',
