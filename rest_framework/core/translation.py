@@ -110,6 +110,17 @@ class Babel:
     _default_domain = "messages"
     _cache = {}
 
+    def gen_locale(self, language_code):
+        lang = language_code.lower()
+        lang = lang.replace("-", "_")
+        try:
+            locale = _locale_caches.setdefault(lang, Locale.parse(lang))
+        except:
+            lang = settings.LANGUAGE_CODE or self._default_language_code
+            locale = _locale_caches.setdefault(lang, Locale.parse(lang))
+
+        return locale
+
     def list_translations(self):
         result = []
 
@@ -123,7 +134,8 @@ class Babel:
                     continue
 
                 if filter(lambda x: x.endswith('.mo'), os.listdir(locale_dir)):
-                    result.append(_locale_caches.setdefault(folder, Locale.parse(folder)))
+                    locale = self.gen_locale(folder)
+                    result.append(locale)
 
         if not result:
             result.append(self.default_locale)
@@ -133,7 +145,7 @@ class Babel:
     @property
     def default_locale(self):
         lang = settings.LANGUAGE_CODE or self._default_language_code
-        locale = _locale_caches.setdefault(lang, Locale.parse(lang))
+        locale = self.gen_locale(lang)
         return locale
 
     @property
@@ -158,9 +170,8 @@ class Babel:
             current_local_context.babel_locale = locale
         return locale
 
-    @staticmethod
-    def refresh_locale(language):
-        locale = _locale_caches.setdefault(language, Locale.parse(language))
+    def refresh_locale(self, language):
+        locale = self.gen_locale(language)
         current_local_context.babel_locale = locale
 
     @property
@@ -181,7 +192,7 @@ class Babel:
                     continue
                 try:
                     translation = support.Translations.load(directory, [lang], self.domain)
-                    locale = _locale_caches.setdefault(lang, Locale.parse(lang))
+                    locale = self.gen_locale(lang)
                     if locale in _translations:
                         _translations[locale].merge(translation)
                     else:

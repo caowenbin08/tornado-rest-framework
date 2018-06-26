@@ -98,8 +98,22 @@ class BaseAPIHandler(RequestHandler):
     def parse_user_language(self):
         languages = self.request.headers.get("Accept-Language")
         if languages is not None:
-            language = languages.split(",")[0]
-            babel.refresh_locale(language)
+            language_codes = []
+            language_list = languages.split(",")
+            for language in language_list:
+                parts = language.strip().split(";")
+                if len(parts) > 1 and parts[1].startswith("q="):
+                    try:
+                        score = float(parts[1][2:])
+                    except (ValueError, TypeError):
+                        score = 0.0
+                else:
+                    score = 1.0
+                language_codes.append((parts[0], score))
+
+            if language_codes:
+                language_codes.sort(key=lambda pair: pair[1], reverse=True)
+                babel.refresh_locale(language_codes[0][0])
 
     def _load_data_and_files(self):
         """
