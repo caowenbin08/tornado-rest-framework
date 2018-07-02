@@ -173,3 +173,9 @@ class CacheWrapper(BaseCache):
         with await (await self.client) as client:
             result = await client.hmget(key, *fields, encoding)
             return [self.decode(r) for r in result]
+
+    async def hgetall(self, key, encoding="utf-8"):
+        key = self.make_key(key)
+        with await (await self.client) as c:
+            result = await c.hgetall(key, encoding=encoding)
+            return {k: self.decode(v) for k, v in result.items()}

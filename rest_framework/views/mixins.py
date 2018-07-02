@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import asyncio
 from rest_framework import serializers
 from rest_framework.core.exceptions import SkipFilterError
 from rest_framework.lib.orm.query import AsyncEmptyQuery

@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version:  zh_Hans_CN\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2018-06-25 20:42+0800\n"
+"POT-Creation-Date: 2018-07-02 17:54+0800\n"
 "PO-Revision-Date: 2018-01-02 20:29+0800\n"
 "Last-Translator: \n"
 "Language: zh_Hans_CN\n"
@@ -22,15 +22,15 @@ msgstr ""
 msgid "A server error occurred"
 msgstr "服务器异常"
 
-#: core/exceptions.py:153
+#: core/exceptions.py:150
 msgid "Invalid input."
 msgstr "请求参数非法"
 
-#: core/exceptions.py:175
+#: core/exceptions.py:172
 msgid "Malformed request"
 msgstr "请求数据解析失败"
 
-#: core/exceptions.py:184
+#: core/exceptions.py:181
 msgid "Invalid page"
 msgstr "无效页码"
 
@@ -147,7 +147,7 @@ msgstr "请输入有效的手机号码"
 msgid "Enter a valid phone number or email address"
 msgstr "输入有效的手机号码或电子邮件地址"
 
-#: forms/fields.py:48 forms/validators.py:93
+#: forms/fields.py:48 forms/validators.py:89
 msgid "This field is required"
 msgstr "此字段为必填栏"
 
@@ -284,17 +284,9 @@ msgstr "至少同时提交%d个表单数据"
 msgid "The form has errors"
 msgstr "表单含有错误信息"
 
-#: forms/validators.py:13
-#, python-format
-msgid "This field (`%(field_name)s`) value must be unique"
-msgstr "此字段(`%(field_name)s`)的值必须唯一性"
-
-#: forms/validators.py:91
-#, python-format
-msgid ""
-"Resource data already exists. The reason is that (%(field_names)s) "
-"constitutes a unique index"
-msgstr "资源数据已经存在，可能由(%(field_names)s)字段构成的联合唯一索引约束引起"
+#: forms/validators.py:13 forms/validators.py:88
+msgid "This data already exists"
+msgstr "此值已存在，请更换其他值"
 
 #: utils/status.py:67
 msgid "Request fulfilled, document follows"
@@ -348,20 +340,20 @@ msgstr "网关超时"
 msgid "Cannot fulfill request"
 msgstr "服务器不支持请求中所用的 HTTP 协议版本"
 
-#: views/generics.py:120
+#: views/generics.py:138
 #, python-format
 msgid "Unsupported media type `%s` in request"
 msgstr "不支持当前请求的格式 `%s`"
 
-#: views/generics.py:178 views/generics.py:238 views/generics.py:253
+#: views/generics.py:201 views/generics.py:328 views/generics.py:346
 msgid "Internal Server Error"
 msgstr "服务器异常"
 
-#: views/generics.py:244
+#: views/generics.py:336
 msgid "Insert failed, the reason may be foreign key constraints"
 msgstr "插入数据失败，可能脏数据或外键约束引起的"
 
-#: views/generics.py:365 views/generics.py:378
+#: views/generics.py:460 views/generics.py:474
 msgid "Resource data does not exist"
 msgstr "请求资源数据不存在"
 
@@ -391,4 +383,13 @@ msgstr "请求资源数据不存在"
 
 #~ msgid "Http Error"
 #~ msgstr "请求异常"
+
+#~ msgid "This field (`%(field_name)s`) value must be unique"
+#~ msgstr "此字段(`%(field_name)s`)的值必须唯一性"
+
+#~ msgid ""
+#~ "Resource data already exists. The reason"
+#~ " is that (%(field_names)s) constitutes a"
+#~ " unique index"
+#~ msgstr "资源数据已经存在，可能由(%(field_names)s)字段构成的联合唯一索引约束引起"
 

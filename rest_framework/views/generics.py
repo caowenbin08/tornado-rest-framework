@@ -1,15 +1,19 @@
 # -*- coding: utf-8 -*-
 import re
+import sys
+import json
 import asyncio
 
 from tornado import gen
+from tornado import httputil
 from tornado import iostream
-from tornado.log import app_log, gen_log
-from tornado.web import RequestHandler, HTTPError
+from tornado.web import RequestHandler, HTTPError, Finish
 
 from rest_framework.core import exceptions
 from rest_framework.core.exceptions import APIException, ErrorDetail, SkipFilterError
 from rest_framework.lib.orm import IntegrityError
+from rest_framework.log import app_logger
+from rest_framework.utils import timezone
 from rest_framework.views import mixins
 from rest_framework.conf import settings
 from rest_framework.core.db import models
@@ -132,7 +136,11 @@ class BaseAPIHandler(RequestHandler):
         parser = self.select_parser()
         if not parser:
             error_detail = _('Unsupported media type `%s` in request') % content_type
-            raise APIException(error_detail, status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE)
+            raise APIException(
+                detail=error_detail,
+                code="MediaTypeError",
+                status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE
+            )
 
         self.request_data = parser.parse(self.request)
         self.request.data = self.request_data
@@ -185,17 +193,102 @@ class BaseAPIHandler(RequestHandler):
 
         except Exception as e:
             try:
-                self._handle_request_exception(e)
-            except Exception:
-                app_log.error("Exception in exception handler", exc_info=True)
+                self._handle_exception(e)
+            except:
+                app_logger.error("Exception in exception handler", exc_info=True)
                 error_response = self.write_response(
-                    data={settings.NON_FIELD_ERRORS: _("Internal Server Error")},
+                    data={settings.NON_FIELD_ERRORS: {
+                        "message": _("Internal Server Error"),
+                        "code": "Error"
+                    }},
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
                 self.write_error(error_response)
 
             if self._prepared_future is not None and not self._prepared_future.done():
                 self._prepared_future.set_result(None)
+
+    def _handle_exception(self, e):
+        if isinstance(e, Finish):
+            if not self._finished:
+                self.finish(*e.args)
+            return
+
+        if self._finished:
+            return
+        status_code = getattr(e, "status_code", status.HTTP_500_INTERNAL_SERVER_ERROR)
+        if status_code not in httputil.responses:
+            status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+
+        exc_info = sys.exc_info()
+        self._record_log(status_code, exc_info)
+        if self._headers_written:
+            if not self._finished:
+                self.finish()
+            return
+        self.clear()
+        error_response = self.pre_handle_exception(exc_info[1])
+        self.write_error(error_response)
+        if not self._finished:
+            self.finish()
+
+    def get_log_extend(self):
+        """
+        用于扩展日志记录消息
+        可重写，返回结构为字典
+        :return:
+        """
+        pass
+
+    def _record_log(self, status_code, exc_info, **kwargs):
+        def _record():
+            params = _clean_credentials(self.request_data)
+            request_time = 1000.0 * self.request.request_time()
+            exc = exc_info[1]
+            if hasattr(exc, "message"):
+                error_info = exc.message
+            elif hasattr(exc, "messages"):
+                error_info = exc.messages
+            elif hasattr(exc, "detail"):
+                error_info = exc.detail
+            else:
+                error_info = ""
+
+            log_context = {
+                "uri": self.request.uri,
+                "method": self.request.method,
+                "host": self.request.headers.get("Host", ""),
+                "ip": self.request.remote_ip,
+                "request_params": params,
+                "request_time": "%.2fms" % request_time,
+                "request_status": status_code,
+                "agent": self.request.headers.get("User-Agent", "").lower(),
+                "time_zone": settings.TIME_ZONE,
+                "time": timezone.now().strftime("%Y-%m-%d %H:%M:%S.%f"),
+                "error_info": error_info,
+            }
+            if kwargs:
+                log_context.update(**kwargs)
+
+            log_extend = self.get_log_extend()
+            if log_extend and isinstance(log_extend, dict):
+                log_context.update(**log_extend)
+
+            log_context = json.dumps(log_context)
+            if status_code >= 500:
+                app_logger.error(log_context, exc_info=exc_info)
+            else:
+                app_logger.error(log_context)
+
+        loop = asyncio.get_event_loop()
+        loop.run_in_executor(None, _record)
+
+    def _log(self):
+        """
+        去掉tornado的日志
+        :return:
+        """
+        pass
 
     def write_response(self, data, status_code=status.HTTP_200_OK, headers=None,
                        content_type="application/json", **kwargs):
@@ -209,54 +302,39 @@ class BaseAPIHandler(RequestHandler):
             content_type=content_type
         )
 
-    def send_error(self, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, **kwargs):
-        if self._headers_written:
-            gen_log.error("Cannot send error response after headers written")
-            if not self._finished:
-                try:
-                    self.finish()
-                except Exception:
-                    gen_log.error("Failed to flush partial response", exc_info=True)
-            return
-        self.clear()
-        exc = kwargs['exc_info'][1] if 'exc_info' in kwargs else None
-        error_response = self.handle_exception(exc)
-
-        try:
-            self.write_error(error_response)
-        except Exception as exc:
-            self.set_status(status.HTTP_500_INTERNAL_SERVER_ERROR)
-            app_log.error("Uncaught exception in write_error", exc_info=True)
-
-        if not self._finished:
-            self.finish()
-
     def write_error(self, response):
         self.finalize_response(response)
         self.finish()
 
-    def handle_exception(self, exc):
+    def pre_handle_exception(self, exc):
         """
-        统一异常处理
+        预处理各种异常返回结构
+        返回Response对象
         :param exc:
-        :return:
+        :return:Response
         """
         if isinstance(exc, (exceptions.APIException, exceptions.ValidationError)):
-            error_response = self.write_response(data=exc.detail, status_code=exc.status_code)
+            error_response = self.write_response(
+                data={settings.NON_FIELD_ERRORS: {"message": exc.detail, "code": exc.code}},
+                status_code=exc.status_code
+            )
 
         elif isinstance(exc, HTTPError):
             status_code = exc.status_code
             http_code_detail = status.HTTP_CODES.get(status_code, None)
             error_response = self.write_response(
-                data={settings.NON_FIELD_ERRORS: http_code_detail.description if http_code_detail
-                      else _("Internal Server Error")},
+                data={settings.NON_FIELD_ERRORS: {
+                    "message": http_code_detail.description
+                    if http_code_detail else _("Internal Server Error"),
+                    "code": "Error"
+                }},
                 status_code=exc.status_code
             )
 
         elif isinstance(exc, IntegrityError):
             error_detail = ErrorDetail(
                 _('Insert failed, the reason may be foreign key constraints'),
-                code="foreign_error"
+                code="ForeignError"
             )
             error_response = self.write_response(
                 data={settings.NON_FIELD_ERRORS: error_detail},
@@ -264,7 +342,10 @@ class BaseAPIHandler(RequestHandler):
             )
         else:
             error_response = self.write_response(
-                data={settings.NON_FIELD_ERRORS: _("Internal Server Error")},
+                data={settings.NON_FIELD_ERRORS: {
+                    "message": _("Internal Server Error"),
+                    "code": "Error"
+                }},
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -373,10 +454,11 @@ class GenericAPIHandler(BaseAPIHandler):
             raise ValueError("First argument to get_object_or_404() must be a Model or SelectQuery,"
                              " not '%s'." % queryset_name)
         except queryset.model_class.DoesNotExist:
+            error_msg = self.error_msg_404 if self.error_msg_404 else {}
             raise exceptions.APIException(
                 status_code=404,
-                detail=self.error_msg_404 if self.error_msg_404
-                else _("Resource data does not exist")
+                detail=error_msg.get("message", _("Resource data does not exist")),
+                code=error_msg.get("code", "ResourceNotExist")
             )
 
     async def get_object(self):
@@ -386,17 +468,14 @@ class GenericAPIHandler(BaseAPIHandler):
         try:
             queryset = await self.filter_queryset(self.get_queryset())
         except SkipFilterError:
+            error_msg = self.error_msg_404 if self.error_msg_404 else {}
             raise exceptions.APIException(
                 status_code=404,
-                detail=self.error_msg_404 if self.error_msg_404
-                else _("Resource data does not exist")
+                detail=error_msg.get("message", _("Resource data does not exist")),
+                code=error_msg.get("code", "ResourceNotExist")
             )
 
-        # if asyncio.iscoroutine(queryset):
-        #     queryset = await queryset
-        #
         queryset = queryset.naive()
-        #
         lookup_url_kwarg = self.lookup_url_kwarg or self.lookup_field
         path_kwargs = self.path_kwargs or self.request_data
         assert lookup_url_kwarg in path_kwargs, (
@@ -471,7 +550,6 @@ class GenericAPIHandler(BaseAPIHandler):
             kwargs.update({
                 'files': self.request.files,
             })
-
         return kwargs
 
     def overload_paginate_settings(self):
@@ -512,7 +590,9 @@ class GenericAPIHandler(BaseAPIHandler):
     @cached_property
     def error_msg_404(self):
         """
-        定义抛出404的错误信息，可以是字典或字符串，桔子：{"return_code": -1, "return_msg": "资源不存在"}
+        定义抛出404的错误信息，格式如下：
+        {"code": "编码", "message": "提示消息"}
+        比如{"code": -1, "message": "资源不存在"}
         :return:
         """
         pass

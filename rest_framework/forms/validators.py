@@ -10,7 +10,7 @@ class UniqueValidator(object):
     model模型字段设置了unique=True，进行唯一索引检查
     """
 
-    message = _("This field (`%(field_name)s`) value must be unique")
+    message = _("This data already exists")
 
     def __init__(self, queryset, message=None, lookup='exact'):
         self.queryset = queryset
@@ -52,10 +52,7 @@ class UniqueValidator(object):
         queryset = self.filter_queryset(value, queryset)
         queryset = self.exclude_current_instance(queryset)
         if (yield from qs_exists(queryset)):
-            raise ValidationError(
-                self.message, code='unique',
-                params={"field_name": self.field_name}
-            )
+            raise ValidationError(self.message, code='unique')
 
     def __repr__(self):
         return '<%s(queryset=%s)>' % (
@@ -88,8 +85,7 @@ class UniqueTogetherValidator(object):
     """
     联合唯一索引校验，主要作用于Model的`Meta.indexes`中定义的唯一索引列表
     """
-    message = _("Resource data already exists. "
-                "The reason is that (%(field_names)s) constitutes a unique index")
+    message = _("This data already exists")
     missing_message = _('This field is required')
 
     def __init__(self, queryset, fields, message=None, error_field=None):
@@ -104,7 +100,7 @@ class UniqueTogetherValidator(object):
         self.fields = fields
         self.message = message or self.message
         self.instance = None
-        self.error_field=error_field
+        self.error_field = error_field
 
     def set_context(self, form):
         """
@@ -155,13 +151,7 @@ class UniqueTogetherValidator(object):
         checked_values = [value for field, value in req_params.items() if field in self.fields]
 
         if None not in checked_values and (yield from qs_exists(queryset)):
-            field_names = ', '.join(self.fields)
-            raise ValidationError(
-                self.message,
-                code='unique',
-                params={"field_names": field_names},
-                field=self.error_field
-            )
+            raise ValidationError(self.message, code='unique', field=self.error_field)
 
     def __repr__(self):
         return '<%s(queryset=%s, fields=%s)>' % (

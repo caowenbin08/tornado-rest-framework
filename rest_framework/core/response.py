@@ -3,7 +3,7 @@ from rest_framework.utils.escape import json_encode
 from rest_framework.utils.status import HTTP_200_OK
 
 
-class Response(object):
+class Response:
     """
     响应处理
     """

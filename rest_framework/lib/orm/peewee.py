@@ -22,6 +22,9 @@ from collections import deque
 from collections import namedtuple
 from collections import OrderedDict
 from logging import NullHandler
+
+from .signals import pre_init
+
 try:
     import pymysql as mysql
 except ImportError:
@@ -4629,9 +4632,11 @@ class Model(with_metaclass(BaseModel)):
         self._data = self._meta.get_default_dict()
         self._dirty = set(self._data)
         self._obj_cache = {}
+        self._old_instance = None
 
         for k, v in kwargs.items():
             setattr(self, k, v)
+        pre_init.send(self)
 
     @classmethod
     def alias(cls):
@@ -4818,6 +4823,7 @@ class Model(with_metaclass(BaseModel)):
 
     def _prepare_instance(self):
         self._dirty.clear()
+        self._old_instance = deepcopy(self)
         self.prepared()
 
     def prepared(self):

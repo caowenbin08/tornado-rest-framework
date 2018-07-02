@@ -19,6 +19,7 @@ from rest_framework import conf
 from rest_framework.conf import settings
 from rest_framework.core.script.exceptions import CommandError
 from rest_framework.core import singnals
+from rest_framework.log import configure_logging
 
 PATTERN = re.compile('^[a-zA-Z]+[a-zA-Z_]*[a-zA-Z]$')
 
@@ -397,6 +398,7 @@ class Server(Command):
         # xheaders 设为true,是获得设置代理也能获得客户端真正IP
         app.listen(port, xheaders=True)
         singnals.app_started.send(self)
+        configure_logging(settings.LOGGING)
         print("http://0.0.0.0:{port}".format(port=port))
         try:
             loop.run_forever()

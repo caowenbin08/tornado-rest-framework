@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2018-06-25 20:42+0800\n"
+"POT-Creation-Date: 2018-07-02 17:54+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -21,15 +21,15 @@ msgstr ""
 msgid "A server error occurred"
 msgstr ""
 
-#: core/exceptions.py:153
+#: core/exceptions.py:150
 msgid "Invalid input."
 msgstr ""
 
-#: core/exceptions.py:175
+#: core/exceptions.py:172
 msgid "Malformed request"
 msgstr ""
 
-#: core/exceptions.py:184
+#: core/exceptions.py:181
 msgid "Invalid page"
 msgstr ""
 
@@ -146,7 +146,7 @@ msgstr ""
 msgid "Enter a valid phone number or email address"
 msgstr ""
 
-#: forms/fields.py:48 forms/validators.py:93
+#: forms/fields.py:48 forms/validators.py:89
 msgid "This field is required"
 msgstr ""
 
@@ -283,16 +283,8 @@ msgstr ""
 msgid "The form has errors"
 msgstr ""
 
-#: forms/validators.py:13
-#, python-format
-msgid "This field (`%(field_name)s`) value must be unique"
-msgstr ""
-
-#: forms/validators.py:91
-#, python-format
-msgid ""
-"Resource data already exists. The reason is that (%(field_names)s) "
-"constitutes a unique index"
+#: forms/validators.py:13 forms/validators.py:88
+msgid "This data already exists"
 msgstr ""
 
 #: utils/status.py:67
@@ -347,20 +339,20 @@ msgstr ""
 msgid "Cannot fulfill request"
 msgstr ""
 
-#: views/generics.py:120
+#: views/generics.py:138
 #, python-format
 msgid "Unsupported media type `%s` in request"
 msgstr ""
 
-#: views/generics.py:178 views/generics.py:238 views/generics.py:253
+#: views/generics.py:201 views/generics.py:328 views/generics.py:346
 msgid "Internal Server Error"
 msgstr ""
 
-#: views/generics.py:244
+#: views/generics.py:336
 msgid "Insert failed, the reason may be foreign key constraints"
 msgstr ""
 
-#: views/generics.py:365 views/generics.py:378
+#: views/generics.py:460 views/generics.py:474
 msgid "Resource data does not exist"
 msgstr ""
 

@@ -4,11 +4,14 @@
 """
 import functools
 
+from tornado.httputil import parse_body_arguments
+
 from rest_framework.conf import settings
 from rest_framework.utils.escape import json_decode
 from rest_framework.core.exceptions import ParseError
 from rest_framework.utils.functional import import_object
 from rest_framework.core.exceptions import ImproperlyConfigured
+from rest_framework.utils.transcoder import force_text
 
 
 class DataAndFiles(object):
@@ -49,3 +52,17 @@ class JSONParser(BaseParser):
             raise ParseError('JSON parse error - %s' % exc)
 
 
+class FormParser(BaseParser):
+    media_type = 'application/x-www-form-urlencoded'
+
+    def parse(self, request):
+        return {k: [force_text(v) for v in vs] if len(vs) > 1 else force_text(vs[-1])
+                for k, vs in request.arguments.items() if vs}
+
+
+class MultiPartParser(BaseParser):
+    media_type = 'multipart/form-data'
+
+    def parse(self, request):
+        return {k: [force_text(v) for v in vs] if len(vs) > 1 else force_text(vs[-1])
+                for k, vs in request.arguments.items() if vs}

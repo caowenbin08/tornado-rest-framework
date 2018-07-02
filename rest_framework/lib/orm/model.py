@@ -1,3 +1,4 @@
+from rest_framework.lib.orm.signals import pre_save, post_save, pre_delete, post_delete
 from .peewee import Model, ModelAlias, IntegrityError, ModificationDateTimeField
 from .query import (
     AsyncSelectQuery,
@@ -41,10 +42,18 @@ class AsyncModel(Model):
 
     @classmethod
     def update(cls, __data=None, **update):
+        """
+        :param __data:
+        :param update:
+        :return:
+        """
         fdict = __data or {}
-        for f in cls._meta.sorted_fields:
-            if isinstance(f, ModificationDateTimeField) and f.auto_now:
-                fdict[f] = None
+        # 是否自动处理修改时间为当前时间
+        __auto_handle_modified = update.pop("__auto_handle_modified", True)
+        if __auto_handle_modified:
+            for f in cls._meta.sorted_fields:
+                if isinstance(f, ModificationDateTimeField) and f.auto_now:
+                    fdict[f] = None
 
         fdict.update([(cls._meta.fields[f], update[f]) for f in update])
         return AsyncUpdateQuery(cls, fdict)
@@ -157,7 +166,7 @@ class AsyncModel(Model):
     def noop(cls, *args, **kwargs):
         return AsyncNoopSelectQuery(cls, *args, **kwargs)
 
-    async def save(self, force_insert=False, only=None):
+    async def __save(self, force_insert=False, only=None):
         field_dict = dict(self._data)
         if self._meta.primary_key is not False:
             pk_field = self._meta.primary_key
@@ -194,7 +203,16 @@ class AsyncModel(Model):
         self._dirty.clear()
         return rows
 
+    async def save(self, force_insert=False, only=None):
+        pk_value = self._get_pk_value()
+        created = force_insert or not bool(pk_value)
+        pre_save.send(self, created=created)
+        ret = await self.__save(force_insert, only)
+        post_save.send(self, created=created)
+        return ret
+
     async def delete_instance(self, recursive=False, delete_nullable=False):
+        pre_delete.send(self)
         if recursive:
             dependencies = self.dependencies(delete_nullable)
             for query, fk in reversed(list(dependencies)):
@@ -203,4 +221,6 @@ class AsyncModel(Model):
                     await (model.update(**{fk.name: None}).where(query).execute())
                 else:
                     await model.delete().where(query).execute()
-        return await self.delete().where(self._pk_expr()).execute()
+        ret = await self.delete().where(self._pk_expr()).execute()
+        post_delete.send(self)
+        return ret
