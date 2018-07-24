@@ -20,8 +20,8 @@ class BaseFormSet(object):
     def __init__(self, request=None, data=None, files=None, initial=None, form_kwargs=None):
         self.request = request
         self.is_bound = data is not None or files is not None
-        self.data = data or {}
-        self.files = files or {}
+        self.data = [] if data is None else data
+        self.files = [] if files is None else files
         self.initial = initial
         self.form_kwargs = form_kwargs or {}
         self._errors = None
@@ -82,7 +82,12 @@ class BaseFormSet(object):
         """
         if not self.is_bound:
             return False
-
+        if not isinstance(self.data, list):
+            raise ValidationError(
+                detail=_("The form data format must be a list structure, not a %s structure."),
+                code='FormDataFormatError',
+                params=type(self.data).__name__
+            )
         forms_valid = True
 
         for i in range(0, self.total_form_count):
@@ -101,6 +106,12 @@ class BaseFormSet(object):
         if not self.is_bound:
             return
 
+        if not isinstance(self.data, list):
+            raise ValidationError(
+                detail=_("The form data format must be a list structure, not a %s structure."),
+                code='FormDataFormatError',
+                params=type(self.data).__name__
+            )
         for i in range(0, self.total_form_count):
             form = self.forms[i]
             form_error = await form.part_errors
