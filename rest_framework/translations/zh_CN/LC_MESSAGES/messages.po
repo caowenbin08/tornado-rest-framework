@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version:  zh_Hans_CN\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2018-07-02 17:54+0800\n"
+"POT-Creation-Date: 2018-07-24 21:16+0800\n"
 "PO-Revision-Date: 2018-01-02 20:29+0800\n"
 "Last-Translator: \n"
 "Language: zh_Hans_CN\n"
@@ -270,12 +270,17 @@ msgstr "必须是list或dict类型，而不是`%(input_type)s`类型"
 msgid "This value not be empty"
 msgstr "此值不能为空"
 
-#: forms/formsets.py:114
+#: forms/formsets.py:87 forms/formsets.py:111
+#, python-format
+msgid "The form data format must be a list structure, not a %s structure."
+msgstr "该请求表单格式必须为`list`类型结构，不能为`%s`结构"
+
+#: forms/formsets.py:125
 #, python-format
 msgid "Please submit %d or fewer forms"
 msgstr "最多可同时提交%d个表单"
 
-#: forms/formsets.py:120
+#: forms/formsets.py:131
 #, python-format
 msgid "Please submit %d or more forms"
 msgstr "至少同时提交%d个表单数据"
