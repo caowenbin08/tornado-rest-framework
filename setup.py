@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-from setuptools import setup, find_packages
+from setuptools import setup, find_packages, Extension
 
 setup(
     name='tornado-rest-framework',
-    version="0.1.10",
+    version="0.1.11",
     keywords=("tornado", "asyncio", "rest api", "python3"),
     description='Tornado Rest Framework',
     long_description="Tornado Rest Framework",
@@ -22,11 +22,85 @@ setup(
     entry_points={'console_scripts': [
         'tornado-admin = rest_framework.core.script:execute_from_command_line',
     ]},
+    ext_modules=[
+        Extension(
+            "rest_framework.core.parsers.parser",
+            [
+                "rest_framework/core/parsers/parser.c",
+                "vendor/http-parser-2.8.1/http_parser.c",
+            ],
+            extra_compile_args=['-O3'],
+            include_dirs=['.']
+        ),
+        Extension(
+            "rest_framework.core.parsers.response",
+            [
+                "rest_framework/core/parsers/response.c",
+                "vendor/http-parser-2.8.1/http_parser.c"
+            ],
+            extra_compile_args=['-O3'],
+            include_dirs=['.']
+        ),
+        Extension(
+            "rest_framework.core.router.router",
+            ["rest_framework/core/router/router.c"],
+            extra_compile_args=['-O3'],
+            include_dirs=['.']
+        ),
+        Extension(
+            "rest_framework.core.responses.responses",
+            ["rest_framework/core/responses/responses.c"],
+            extra_compile_args=['-O3'],
+            include_dirs=['.']
+        ),
+        Extension(
+            "rest_framework.core.protocol.cprotocol",
+            ["rest_framework/core/protocol/cprotocol.c"],
+            extra_compile_args=['-O3'],
+            include_dirs=['.']
+        ),
+        Extension(
+            "rest_framework.core.request.request",
+            ["rest_framework/core/request/request.c"],
+            extra_compile_args=['-O3'],
+            include_dirs=['.']
+        ),
+        Extension(
+            "rest_framework.core.cache.cache",
+            ["rest_framework/core/cache/cache.c"],
+            extra_compile_args=['-O3'],
+            include_dirs=['.']
+        ),
+        Extension(
+            "rest_framework.core.headers.headers",
+            ["rest_framework/core/headers/headers.c"],
+            extra_compile_args=['-O3'],
+            include_dirs=['.']
+        ),
+        Extension(
+            "rest_framework.core.components.components",
+            ["rest_framework/core/components/components.c"],
+            extra_compile_args=['-O3'],
+            include_dirs=['.']
+        ),
+        Extension(
+            "rest_framework.core.multipart.parser",
+            ["rest_framework/core/multipart/parser.c"],
+            extra_compile_args=['-O3'],
+            include_dirs=['.']
+        ),
+        Extension(
+            "rest_framework.lib.orm.speedups",
+            ["rest_framework/lib/orm/speedups.c"],
+            extra_compile_args=['-O3'],
+            include_dirs=['.']
+        ),
+    ],
     install_requires=[
-        "tornado>=4.5.2",
+        "uvloop==0.10.2"
         "pytz>=2017.3",
         "blinker>=1.4",
         "Babel>=2.5.1",
-        "ujson>=1.35"
+        "ujson==1.35"
     ]
 )

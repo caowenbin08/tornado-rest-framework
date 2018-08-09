@@ -232,8 +232,8 @@ class Server(Command):
                        'TORNADO_REST_SETTINGS_MODULE environment variable will be used.'
                    )),
 
-            Option("-r", "--rules", dest="rules", type=str,
-                   help='Specifies mappings between URLs and handlers'),
+            Option("-w", "--workers", dest="workers", type=int,
+                   help='Open the number of sockets'),
 
         )
 
@@ -269,6 +269,7 @@ class Server(Command):
         urlpatterns = self.url_patterns(rules)
         debug = kwargs.pop("debug", None)
         debug = debug if debug is not None else settings.DEBUG
+        workers = kwargs.get("workers", None)
 
         try:
             import uvloop
@@ -276,10 +277,10 @@ class Server(Command):
         except ImportError:
             pass
         app = Application()
-        for pattern, handler, kwargs, name in urlpatterns:
+        for pattern, handler, handler_kwargs, name in urlpatterns:
             pattern = pattern.strip("^").strip("$")
-            app.register_view(pattern, handler=handler, name=name, **kwargs)
+            app.register_view(pattern, handler=handler, name=name, **handler_kwargs)
 
         singnals.app_started.send(self)
         configure_logging(settings.LOGGING)
-        app.run(debug=debug, port=port)
+        app.run(debug=debug, port=port, workers=workers)
