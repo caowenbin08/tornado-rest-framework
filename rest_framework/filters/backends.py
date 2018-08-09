@@ -61,7 +61,7 @@ class SearchFilter(BaseFilterBackend):
         :param request_handler:
         :return:
         """
-        search_param = request_handler.get_query_argument(self.search_param, "")
+        search_param = request_handler.request_data.get(self.search_param, "")
         return search_param.replace(',', ' ').split()
 
     def construct_search(self, query_model_fields, field_name):
@@ -115,7 +115,7 @@ class OrderingFilter(BaseFilterBackend):
     ordering_fields = None
 
     def get_ordering(self, request_handler, queryset):
-        ordering_fields = request_handler.get_query_arguments(self.ordering_param)
+        ordering_fields = request_handler.request_data.get(self.ordering_param)
         if ordering_fields:
             ordering = self.remove_invalid_fields(request_handler, queryset, ordering_fields)
             if ordering:
@@ -236,7 +236,7 @@ class FilterBackend(BaseFilterBackend):
         filter_class = self.get_filter_class(request_handler, queryset)
 
         if filter_class:
-            filterset = filter_class(request_handler.request.data, queryset)
+            filterset = filter_class(request_handler.request_data, queryset)
             if not await filterset.is_valid() and self.raise_exception:
                 raise ValidationError(await filterset.errors)
             return await filterset.qs

@@ -7,7 +7,6 @@ from .peewee import NaiveQueryResultWrapper
 
 from .utils import AsyncIterWrapper, alist
 
-
 class AsyncResultIterator(object):
 
     def __init__(self, qrw):

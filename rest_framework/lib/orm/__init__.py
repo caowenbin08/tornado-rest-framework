@@ -5,7 +5,7 @@ from .peewee import *
 from .mysql import AsyncMySQLDatabase
 from .model import AsyncModel as Model
 from .database import create_model_tables, drop_model_tables
-
+from .query import *
 schemes = {
     'mysql': AsyncMySQLDatabase,
 }

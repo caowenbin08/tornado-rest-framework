@@ -3,29 +3,12 @@
 分页处理
 """
 from math import ceil
-from urllib import parse
 from collections import OrderedDict
-from rest_framework.core.response import Response
+from rest_framework.core.result import Result
 from rest_framework.core.translation import lazy_translate as _
 from rest_framework.core.exceptions import PaginationError
 from rest_framework.lib.orm.query import AsyncEmptyQuery
 from rest_framework.utils.cached_property import cached_property, async_cached_property
-
-
-def replace_query_param(url, key, val):
-    (scheme, netloc, path, query, fragment) = parse.urlsplit(url)
-    query_dict = parse.parse_qs(query, keep_blank_values=True)
-    query_dict[key] = [val]
-    query = parse.urlencode(sorted(list(query_dict.items())), doseq=True)
-    return parse.urlunsplit((scheme, netloc, path, query, fragment))
-
-
-def remove_query_param(url, key):
-    (scheme, netloc, path, query, fragment) = parse.urlsplit(url)
-    query_dict = parse.parse_qs(query, keep_blank_values=True)
-    query_dict.pop(key, None)
-    query = parse.urlencode(sorted(list(query_dict.items())), doseq=True)
-    return parse.urlunsplit((scheme, netloc, path, query, fragment))
 
 
 def _positive_int(integer_string, strict=False, cutoff=None):
@@ -142,15 +125,15 @@ class PageNumberPagination(BasePagination):
     # 每页条数
     page_size = 10
     # 页码查询参数变量名
-    page_query_param = "page"
+    page_query_param = b"page"
     # 自定义每页条数的查询参数名，主要作用于在请求参数中自定义每页条数大小,比如定义为page_size,则请求url参数?page_size=2
-    page_size_query_param = "page_size"
+    page_size_query_param = b"page_size"
     # 每页条数最大值
     max_page_size = None
     # 默认可以作为最后页码的字符串集合
-    last_page_strings = ('last',)
+    last_page_strings = (b'last',)
     # 默认可以作为第一页码的字符串集合
-    first_page_strings = ('first',)
+    first_page_strings = (b'first',)
     paginator_class = Paginator
     orphans = 0
     # 当页码超过总页码时，是否允许返回空列表，True代表可以，False代表抛出APIException异常
@@ -165,7 +148,7 @@ class PageNumberPagination(BasePagination):
         获得页码
         :return:
         """
-        page_number = self.request_handler.get_query_argument(self.page_query_param, 1)
+        page_number = self.request_handler.request_data.get(self.page_query_param, 1)
         num_pages = self.paginator.num_pages
 
         if page_number in self.first_page_strings:
@@ -228,11 +211,9 @@ class PageNumberPagination(BasePagination):
 
     async def get_paginated_response(self, data):
         count = self.paginator.count
-        return Response(OrderedDict([
+        return Result(OrderedDict([
             ('count', count),
             ('num_pages', self.paginator.num_pages),
-            ('next', self.get_next_link()),
-            ('previous', self.get_previous_link()),
             ('results', data)
         ]))
 
@@ -242,10 +223,9 @@ class PageNumberPagination(BasePagination):
         如果用户自定义了page_size_query_param变量并在请求参数中传了过来，则为其反之为page_size
         :return:
         """
-
         if self.page_size_query_param:
             try:
-                page_size = self.request_handler.get_query_argument(
+                page_size = self.request_handler.request_data.get(
                     self.page_size_query_param, self.page_size
                 )
                 return _positive_int(page_size, strict=True, cutoff=self.max_page_size)
@@ -254,36 +234,6 @@ class PageNumberPagination(BasePagination):
 
         return self.page_size
 
-    def get_next_link(self):
-        """
-        下一页url
-        :return:
-        """
-        if not self.paginator.has_next():
-            return None
-
-        url = self.request_handler.request.full_url()
-        page_number = self.paginator.next_page_number()
-
-        return replace_query_param(url, self.page_query_param, page_number)
-
-    def get_previous_link(self):
-        """
-        上一页url
-        :return:
-        """
-
-        if not self.paginator.has_previous():
-            return None
-
-        url = self.request_handler.request.full_url()
-        page_number = self.paginator.previous_page_number()
-
-        if page_number == 1:
-            return remove_query_param(url, self.page_query_param)
-
-        return replace_query_param(url, self.page_query_param, page_number)
-
 
 class LimitOffsetPagination(BasePagination):
     """
@@ -291,8 +241,8 @@ class LimitOffsetPagination(BasePagination):
     """
     # 默认分页列表条目数
     default_limit = 10
-    limit_query_param = 'limit'
-    offset_query_param = 'offset'
+    limit_query_param = b'limit'
+    offset_query_param = b'offset'
     # 默认最大的列表条目数, 默认不限制
     max_limit = None
 
@@ -335,10 +285,8 @@ class LimitOffsetPagination(BasePagination):
         return list(queryset[self.offset:self.offset + self.limit])
 
     def get_paginated_response(self, data):
-        return Response(OrderedDict([
+        return Result(OrderedDict([
             ('count', self.count),
-            ('next', self.get_next_link()),
-            ('previous', self.get_previous_link()),
             ('results', data)
         ]))
 
@@ -346,7 +294,7 @@ class LimitOffsetPagination(BasePagination):
     def limit(self):
         if self.limit_query_param:
             try:
-                limit = self.request_handler.get_query_argument(
+                limit = self.request_handler.request_data.get(
                     self.limit_query_param, self.default_limit
                 )
                 return _positive_int(limit, strict=True, cutoff=self.max_limit)
@@ -362,29 +310,3 @@ class LimitOffsetPagination(BasePagination):
             return _positive_int(offset)
         except (TypeError, KeyError, ValueError):
             return 0
-
-    def get_next_link(self):
-
-        if self.offset + self.limit >= self.count:
-            return None
-
-        url = self.request_handler.request.full_url()
-        url = replace_query_param(url, self.limit_query_param, self.limit)
-
-        offset = self.offset + self.limit
-
-        return replace_query_param(url, self.offset_query_param, offset)
-
-    def get_previous_link(self):
-        if self.offset <= 0:
-            return None
-
-        url = self.request_handler.request.full_url()
-        url = replace_query_param(url, self.limit_query_param, self.limit)
-
-        if self.offset - self.limit <= 0:
-            return remove_query_param(url, self.offset_query_param)
-
-        offset = self.offset - self.limit
-
-        return replace_query_param(url, self.offset_query_param, offset)

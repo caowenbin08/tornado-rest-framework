@@ -4,7 +4,7 @@ from importlib import import_module
 from rest_framework.utils.functional import import_object
 
 
-def url(pattern, handler, kwargs=None, name=None, prefix=''):
+def url(pattern, handler, name=None, prefix='', **kwargs):
     """
     指定URL和处理程序之间的映射，即tornado.web.URLSpec
     """

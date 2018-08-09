@@ -14,13 +14,11 @@ from .peewee import SQL, R, Clause, fn, binary_construct
 from .peewee import logger
 
 from .context import Atomic, Transaction, SavePoint
-from .result import (
-    AsyncNaiveQueryResultWrapper,
-    AsyncModelQueryResultWrapper,
-    AsyncTuplesQueryResultWrapper,
-    AsyncDictQueryResultWrapper,
-    AsyncAggregateQueryResultWrapper,
-)
+from rest_framework.lib.orm.result import AsyncModelQueryResultWrapper
+from rest_framework.lib.orm.result import AsyncTuplesQueryResultWrapper
+from rest_framework.lib.orm.result import AsyncDictQueryResultWrapper
+from rest_framework.lib.orm.result import AsyncNaiveQueryResultWrapper
+from rest_framework.lib.orm.result import AsyncAggregateQueryResultWrapper
 
 
 class AsyncConnection:

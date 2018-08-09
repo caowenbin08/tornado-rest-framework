@@ -32,82 +32,91 @@ except ImportError:
 import pytz
 
 utc = pytz.utc
+try:
+    from rest_framework.lib.orm.speedups import format_date_time
+    from rest_framework.lib.orm.speedups import sort_models_topologically
+    from rest_framework.lib.orm.speedups import strip_parens
+except ImportError:
+    def format_date_time(value, formats, post_process=None):
+        post_process = post_process or (lambda x: x)
+        for fmt in formats:
+            try:
+                return post_process(datetime.datetime.strptime(value, fmt))
+            except ValueError:
+                pass
+        return value
 
 
-def format_date_time(value, formats, post_process=None):
-    post_process = post_process or (lambda x: x)
-    for fmt in formats:
-        try:
-            return post_process(datetime.datetime.strptime(value, fmt))
-        except ValueError:
-            pass
-    return value
+    def sort_models_topologically(models):
+        """Sort models topologically so that parents will precede children."""
+        models = set(models)
+        seen = set()
+        ordering = []
+
+        def dfs(model):
+            # Omit models which are already sorted
+            # or should not be in the list at all
+            if model in models and model not in seen:
+                seen.add(model)
+
+                # First create models on which current model depends
+                # (either through foreign keys or through depends_on),
+                # then create current model itself
+                for foreign_key in model._meta.rel.values():
+                    dfs(foreign_key.rel_model)
+                if model._meta.depends_on:
+                    for dependency in model._meta.depends_on:
+                        dfs(dependency)
+                ordering.append(model)
+
+        # Order models by name and table initially to guarantee total ordering.
+        names = lambda m: (m._meta.name, m._meta.db_table)
+        for m in sorted(models, key=names):
+            dfs(m)
+        return ordering
 
 
-def sort_models_topologically(models):
-    """Sort models topologically so that parents will precede children."""
-    models = set(models)
-    seen = set()
-    ordering = []
+    def strip_parens(s):
+        # Quick sanity check.
+        if not s or s[0] != '(':
+            return s
 
-    def dfs(model):
-        # Omit models which are already sorted
-        # or should not be in the list at all
-        if model in models and model not in seen:
-            seen.add(model)
-
-            # First create models on which current model depends
-            # (either through foreign keys or through depends_on),
-            # then create current model itself
-            for foreign_key in model._meta.rel.values():
-                dfs(foreign_key.rel_model)
-            if model._meta.depends_on:
-                for dependency in model._meta.depends_on:
-                    dfs(dependency)
-            ordering.append(model)
-
-    # Order models by name and table initially to guarantee total ordering.
-    names = lambda m: (m._meta.name, m._meta.db_table)
-    for m in sorted(models, key=names):
-        dfs(m)
-    return ordering
-
-
-def strip_parens(s):
-    # Quick sanity check.
-    if not s or s[0] != '(':
-        return s
-
-    ct = i = 0
-    l = len(s)
-    while i < l:
-        if s[i] == '(' and s[l - 1] == ')':
-            ct += 1
-            i += 1
-            l -= 1
-        else:
-            break
-    if ct:
-        # If we ever end up with negatively-balanced parentheses, then we
-        # know that one of the outer parentheses was required.
-        unbalanced_ct = 0
-        required = 0
-        for i in range(ct, l - ct):
-            if s[i] == '(':
-                unbalanced_ct += 1
-            elif s[i] == ')':
-                unbalanced_ct -= 1
-            if unbalanced_ct < 0:
-                required += 1
-                unbalanced_ct = 0
-            if required == ct:
+        ct = i = 0
+        l = len(s)
+        while i < l:
+            if s[i] == '(' and s[l - 1] == ')':
+                ct += 1
+                i += 1
+                l -= 1
+            else:
                 break
-        ct -= required
-    if ct > 0:
-        return s[ct:-ct]
-    return s
-
-_DictQueryResultWrapper = _ModelQueryResultWrapper = _SortedFieldList = _TuplesQueryResultWrapper = None
+        if ct:
+            # If we ever end up with negatively-balanced parentheses, then we
+            # know that one of the outer parentheses was required.
+            unbalanced_ct = 0
+            required = 0
+            for i in range(ct, l - ct):
+                if s[i] == '(':
+                    unbalanced_ct += 1
+                elif s[i] == ')':
+                    unbalanced_ct -= 1
+                if unbalanced_ct < 0:
+                    required += 1
+                    unbalanced_ct = 0
+                if required == ct:
+                    break
+            ct -= required
+        if ct > 0:
+            return s[ct:-ct]
+        return s
+try:
+    from rest_framework.lib.orm.speedups import _DictQueryResultWrapper
+    from rest_framework.lib.orm.speedups import _ModelQueryResultWrapper
+    from rest_framework.lib.orm.speedups import _SortedFieldList
+    from rest_framework.lib.orm.speedups import _TuplesQueryResultWrapper
+except ImportError:
+    _DictQueryResultWrapper = _ModelQueryResultWrapper = _SortedFieldList =\
+            _TuplesQueryResultWrapper = None
 
 logger = logging.getLogger('peewee')
 logger.addHandler(NullHandler())

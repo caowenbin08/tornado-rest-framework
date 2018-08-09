@@ -3,7 +3,7 @@ from rest_framework.utils.escape import json_encode
 from rest_framework.utils.status import HTTP_200_OK
 
 
-class Response:
+class Result:
     """
     响应处理
     """
@@ -26,4 +26,4 @@ class Response:
 
     @property
     def data(self):
-        return json_encode(self._data) if self.content_type == "application/json" else self._data
+        return self._data

@@ -1,24 +1,13 @@
 # -*- coding: utf-8 -*-
 import re
 import os
-import io
-import sys
-import stat
-import errno
-import shutil
 import inspect
 import argparse
 import asyncio
-from os.path import join
 from importlib import import_module
-
-import tornado.web
-from tornado import template
-from tornado.platform.asyncio import AsyncIOMainLoop
-from rest_framework import conf
 from rest_framework.conf import settings
-from rest_framework.core.script.exceptions import CommandError
 from rest_framework.core import singnals
+from rest_framework.core.application import Application
 from rest_framework.log import configure_logging
 
 PATTERN = re.compile('^[a-zA-Z]+[a-zA-Z_]*[a-zA-Z]$')
@@ -216,104 +205,6 @@ class Command(object):
         raise NotImplementedError
 
 
-class TemplateMix(object):
-
-    rewrite_template_suffixes = (
-        ('.py.tpl', '.py'),
-    )
-    # 需要解析模板文件渲染参数的文件
-    extra_files = ("settings.py.tpl", )
-    stdout = sys.stdout
-    stderr = sys.stderr
-
-    def create(self, app_or_project, name, target=None, **options):
-        self.validate_name(name)
-        # 如果目标目录没有指定，则在当前目录下加项目名创建
-        if target is None:
-            top_dir = join(os.getcwd(), name)
-            try:
-                os.makedirs(top_dir)
-            except OSError as e:
-                raise CommandError("The directory ('%s') already exists" % top_dir
-                                   if e.errno == errno.EEXIST else e)
-        else:
-            top_dir = os.path.abspath(os.path.expanduser(target))
-
-        if not os.path.exists(top_dir):
-            raise CommandError("The directory ('%s') does not exist. Please create this directory "
-                               "first" % top_dir)
-
-        template_dir = join(conf.__path__[0], 'templates', app_or_project)
-        prefix_length = len(template_dir) + 1
-
-        for root, dirs, files in os.walk(template_dir):
-
-            path_rest = root[prefix_length:]
-            relative_dir = path_rest.replace(app_or_project, name)
-            if relative_dir:
-                target_dir = join(top_dir, relative_dir)
-                if not os.path.exists(target_dir):
-                    os.mkdir(target_dir)
-
-            for dir_name in dirs[:]:
-                if dir_name.startswith('.') or dir_name == '__pycache__':
-                    dirs.remove(dir_name)
-
-            for filename in files:
-                if filename.endswith(('.pyo', '.pyc', '.py.class')):
-                    continue
-                old_path = join(root, filename)
-                new_path = join(top_dir, relative_dir, filename.replace(app_or_project, name))
-
-                for old_suffix, new_suffix in self.rewrite_template_suffixes:
-                    if new_path.endswith(old_suffix):
-                        new_path = new_path[:-len(old_suffix)] + new_suffix
-                        break
-
-                if filename in self.extra_files:
-                    with io.open(old_path, 'rb') as template_file:
-                        t = template.Template(template_file.read())
-                        content = t.generate(**options)
-
-                    with io.open(new_path, 'wb') as new_file:
-                        new_file.write(content)
-                else:
-
-                    shutil.copyfile(old_path, new_path)
-
-                try:
-                    shutil.copymode(old_path, new_path)
-                    self.make_writeable(new_path)
-                except OSError:
-                    self.stderr.write(
-                        "Can not set permissions on %s, check file system settings." % new_path
-                    )
-
-    @staticmethod
-    def validate_name(name):
-        if name is None:
-            raise CommandError("Project (or application) name can not be empty")
-
-        if not PATTERN.match(name):
-            raise CommandError("The project (or application) name must consist of a letter"
-                               " or underscore, but the beginning or end must be a letter")
-
-    @staticmethod
-    def make_writeable(filename):
-        """
-        确保文件是可写的
-        :param filename:
-        :return:
-        """
-        if sys.platform.startswith('java'):
-            return
-
-        if not os.access(filename, os.W_OK):
-            st = os.stat(filename)
-            new_permissions = stat.S_IMODE(st.st_mode) | stat.S_IWUSR
-            os.chmod(filename, new_permissions)
-
-
 class Server(Command):
     help = description = "Start the service"
 
@@ -376,80 +267,19 @@ class Server(Command):
 
         rules = kwargs.get("rules", None)
         urlpatterns = self.url_patterns(rules)
-        app_settings = dict(
-            gzip=True,
-            debug=settings.DEBUG,
-            xsrf_cookies=settings.XSRF_COOKIES
-        )
-
         debug = kwargs.pop("debug", None)
-        if debug is not None:
-            app_settings["debug"] = debug
+        debug = debug if debug is not None else settings.DEBUG
 
         try:
             import uvloop
             asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
         except ImportError:
             pass
+        app = Application()
+        for pattern, handler, kwargs, name in urlpatterns:
+            pattern = pattern.strip("^").strip("$")
+            app.register_view(pattern, handler=handler, name=name, **kwargs)
 
-        AsyncIOMainLoop().install()
-        loop = asyncio.get_event_loop()
-        app = tornado.web.Application(urlpatterns, **app_settings)
-        # xheaders 设为true,是获得设置代理也能获得客户端真正IP
-        app.listen(port, xheaders=True)
         singnals.app_started.send(self)
         configure_logging(settings.LOGGING)
-        print("http://0.0.0.0:{port}".format(port=port))
-        try:
-            loop.run_forever()
-        except KeyboardInterrupt:
-            sys.stderr.flush()
-        finally:
-            singnals.app_closed.send(self)
-            loop.stop()
-            loop.run_until_complete(loop.shutdown_asyncgens())
-            loop.close()
-
-
-class StartProject(Command, TemplateMix):
-    """
-    必须给一个项目名在当前目录中或指定目录中创建，如果没有指定目录，则在当前目录下加项目名创建
-    """
-    help = "Create a project"
-    description = ("Creates a project directory structure for the given project "
-                   "name in the current directory or optionally in the given directory.")
-
-    def get_options(self):
-
-        options = (
-
-            Option('-n', '--name',
-                   dest='project_name',
-                   type=str,
-                   help="Project name",
-                   default=""),
-
-            Option('-d', '--directory',
-                   dest='target',
-                   nargs='?',
-                   help="Optional destination directory"),
-        )
-
-        return options
-
-    def run(self, app, project_name, target):
-        # project_name, target = options.pop('name'), options.pop('directory')
-        self.validate_name(project_name)
-        try:
-            import_module(project_name)
-        except ImportError:
-            pass
-        else:
-            raise CommandError(
-                "{name} conflicts with the name of an existing Python module and cannot be used "
-                "as a project name. Please try another name.".format(name=project_name)
-            )
-
-        options = dict(project_name=project_name)
-        return self.create('project', project_name, target, **options)
-
+        app.run(debug=debug, port=port)

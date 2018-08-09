@@ -4,7 +4,7 @@ from threading import local
 
 from rest_framework.conf import settings
 from rest_framework.core.exceptions import ImproperlyConfigured
-
+from rest_framework.core.cache.cache import *
 
 DEFAULT_CACHE_ALIAS = 'default'
 

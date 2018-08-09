@@ -50,8 +50,8 @@ def check_password(password, encoded_password, restpwd=None, preferred='default'
     must_update = hasher_changed or preferred.must_update(encoded_password)
     is_correct = hasher.verify(password, encoded_password)
 
-    if not is_correct and not hasher_changed and must_update:
-        hasher.harden_runtime(password, encoded_password)
+    # if not is_correct and not hasher_changed and must_update:
+    #     hasher.harden_runtime(password, encoded_password)
 
     if restpwd and is_correct and must_update:
         restpwd(password)

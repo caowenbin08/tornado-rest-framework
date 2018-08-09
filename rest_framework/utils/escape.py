@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
-import ujson as json
-
+from rest_framework.utils import json
 from rest_framework.utils.transcoder import force_text
 
 
 def json_encode(value):
-    return json.dumps(value).replace("</", "<\\/")
+    return json.dumps(value, escape_forward_slashes=False)
 
 
 def json_decode(value):

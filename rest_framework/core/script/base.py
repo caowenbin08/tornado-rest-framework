@@ -6,7 +6,7 @@ import types
 import logging
 import argparse
 
-from rest_framework.core.script.commands import Option, Command, Server, StartProject
+from rest_framework.core.script.commands import Option, Command, Server
 from rest_framework.core.script.exceptions import CommandError
 
 
@@ -76,9 +76,6 @@ class Manager(object):
 
         if "runserver" not in self._commands:
             self.add_command("runserver", Server())
-
-        if "startproject" not in self._commands:
-            self.add_command("startproject", StartProject())
 
     def add_option(self, *args, **kwargs):
         self._options.append(Option(*args, **kwargs))
