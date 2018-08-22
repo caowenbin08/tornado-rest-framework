@@ -6,7 +6,8 @@ from inspect import iscoroutinefunction, signature
 from .parser import PatternParser
 from rest_framework.core.limits import RouteLimits
 from rest_framework.utils.router import clean_route_name, clean_methods
-from rest_framework.core.exceptions import ReverseNotFound, NotFound, MissingComponent
+from rest_framework.core.exceptions import ReverseNotFound, NotFound, MissingComponent, \
+    MethodNotAllowed
 from rest_framework.core.request.request import Request
 from rest_framework.core.cache.cache import CacheEngine
 from rest_framework.core.responses.responses import RedirectResponse
@@ -40,7 +41,7 @@ class Router:
         self.strategy = strategy
         self.reverse_index = {}
         self.routes = {}
-        self.dynamic_routes = {}
+        self.dynamic_routes = []
         self.default_handlers = {}
         self.cache = LRUCache(max_size=1024 * 1024)
 
@@ -51,26 +52,16 @@ class Router:
         :return:
         """
         if route.is_dynamic:
-            for method in route.methods:
-                self.dynamic_routes.setdefault(method, []).append(route)
+            self.dynamic_routes.append(route)
         else:
-            for method in route.methods:
-                key_bytes = b"%b%b" % (route.pattern, method)
-                m = hashlib.md5()
-                m.update(key_bytes)
-                cache_key = m.hexdigest()
-                self.routes[cache_key] = route
+            m = hashlib.md5()
+            m.update(route.pattern)
+            cache_key = m.hexdigest()
+            self.routes[cache_key] = route
 
         self.reverse_index[route.name] = route
 
     def add_route(self, route: 'Route', prefixes: dict = None, check_slashes: bool = True):
-        """
-
-        :param route:
-        :param prefixes:
-        :param check_slashes:
-        :return:
-        """
         if prefixes is None:
             prefixes = {'': ''}
 
@@ -110,33 +101,34 @@ class Router:
         except KeyError:
             raise ReverseNotFound('Failed to build url for {0}'.format(_name))
 
-    def _find_route(self, url: bytes, method: bytes) -> 'Route':
-        """
+    @staticmethod
+    def check_allowed_method(route: 'Route', method: bytes):
+        methods = route.methods
+        if method not in methods:
+            raise MethodNotAllowed()
 
-        :param url:
-        :param method:
-        :return:
-        """
-        key_bytes = b"%b%b" % (url, method)
+    def _find_route(self, url: bytes, method: bytes) -> 'Route':
         m = hashlib.md5()
-        m.update(key_bytes)
+        m.update(url)
         cache_key = m.hexdigest()
         route = self.cache.values.get(cache_key)
         if route:
+            self.check_allowed_method(route, method)
             return route
 
         try:
             route = self.routes[cache_key]
             self.cache.set(cache_key, route)
+            self.check_allowed_method(route, method)
             return route
         except KeyError:
             pass
 
-        if method in self.dynamic_routes:
-            for route in self.dynamic_routes[method]:
-                if route.regex.fullmatch(url):
-                    self.cache.set(cache_key, route)
-                    return route
+        for route in self.dynamic_routes:
+            if route.regex.fullmatch(url):
+                self.cache.set(cache_key, route)
+                self.check_allowed_method(route, method)
+                return route
 
         raise NotFound()
 
@@ -146,6 +138,8 @@ class Router:
             return route
         except NotFound:
             return self.default_handlers[404]
+        except MethodNotAllowed:
+            return self.default_handlers[405]
         except Exception as e:
             request.context['exc'] = e
             return self.default_handlers[500]
@@ -175,12 +169,12 @@ class Route:
             self.is_dynamic = PatternParser.is_dynamic_pattern(self.regex.pattern)
         else:
             self.is_dynamic = dynamic
-        self.cache = cache
-        self.limits = limits
+        # self.cache = cache
+        # self.limits = limits
 
-    def extract_components(self, handler):
-        hints = get_type_hints(handler)
-        if not hints and len(signature(handler).parameters) > 0:
+    def extract_components(self):
+        hints = get_type_hints(self.handler)
+        if not hints and len(signature(self.handler).parameters) > 0:
             raise Exception(f'Type hint your route ({self.name}) params so Vibora can optimize stuff.')
         return tuple(filter(lambda x: x[0] != 'return', hints.items()))
 
@@ -230,5 +224,5 @@ class Route:
     def clone(self, pattern=None, name=None, handler=None, methods=None, dynamic=None):
         return Route(pattern=pattern or self.pattern, handler=handler or self.handler,
                      methods=methods or self.methods, parent=self.parent, app=self.app,
-                     limits=self.limits,  dynamic=dynamic or self.is_dynamic,
-                     name=name or self.name, cache=self.cache)
+                     dynamic=dynamic or self.is_dynamic,
+                     name=name or self.name)

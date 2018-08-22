@@ -34,3 +34,20 @@ def include(urlconf_module):
     urlpatterns = getattr(urlconf_module, 'urlpatterns', [])
 
     return urlpatterns
+
+
+def url_patterns(urlconf_module):
+    if isinstance(urlconf_module, str):
+        urlconf_module = import_module(urlconf_module)
+
+    urlpatterns = getattr(urlconf_module, 'urlpatterns', [])
+
+    url_specs = []
+    for url_spec in urlpatterns:
+        if isinstance(url_spec, list):
+            url_specs.extend(url_spec)
+        else:
+            url_specs.append(url_spec)
+
+    return url_specs
+
