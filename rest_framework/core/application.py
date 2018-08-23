@@ -1,51 +1,20 @@
 import logging
-import traceback
-from functools import partial
-from multiprocessing import cpu_count
-from typing import Callable, Type, Optional
-
+from typing import Type
 import uvicorn
 
 from rest_framework.conf import settings
 from rest_framework.core import urls
 from rest_framework.core.request import Request
-from rest_framework.core.responses import Response
-from rest_framework.core.blueprints import Blueprint
 from rest_framework.core.router import Route
-from rest_framework.core.router import Router, RouterStrategy, RouteLimits
-from rest_framework.core.protocol import Connection
-from rest_framework.core.components import ComponentsEngine
-from rest_framework.core.exceptions import ReverseNotFound, DuplicatedBlueprint
-from rest_framework.core.exceptions import NotFound, MethodNotAllowed, MissingComponent
-from rest_framework.core.parsers.errors import BodyLimitError, HeadersLimitError
-from rest_framework.core.workers.handler import RequestHandler
-from rest_framework.core.workers.necromancer import Necromancer
-from rest_framework.core.limits import ServerLimits
-from rest_framework.utils.server import wait_server_available, pause
+from rest_framework.core.router import Router, RouterStrategy
 
 logger = logging.getLogger(__name__)
 
 
 class Application:
 
-    def __init__(self, router_strategy=RouterStrategy.CLONE, server_name: str = None,
-                 url_scheme: str = 'http', log_handler: Callable=None, access_logs: bool=None,
-                 server_limits: ServerLimits=None, route_limits: RouteLimits=None,
-                 request_class: Type[Request]=Request):
-        self.debug_mode = False
-        # self.server_name = server_name
-        # self.url_scheme = url_scheme
-        self.handler = Connection
+    def __init__(self, router_strategy=RouterStrategy.CLONE, request_class: Type[Request]=Request):
         self.router = Router(strategy=router_strategy)
-        # self.connections = set()
-        # self.workers = []
-        # self.components = ComponentsEngine()
-        # self.loop = None
-        # self.access_logs = access_logs
-        # self.log_handler = log_handler
-        # self.initialized = False
-        # self.server_limits = server_limits or ServerLimits()
-        # self.running = False
         if not issubclass(request_class, Request):
             raise ValueError(
                 'class_obj must be a child of the Vibora Request class. '
@@ -83,7 +52,14 @@ class Application:
 
 
 class ASyncApplication(Application):
-    pass
+    def __call__(self, scope):
+        async def asgi_callable(receive, send):
+            request = self.request_class(scope, receive)
+            route = self.router.get_route(request)
+            response = await route.call_handler(request)
+            await response(receive, send)
+
+        return asgi_callable
 
 
 def get_application(interface=b"asgi"):
