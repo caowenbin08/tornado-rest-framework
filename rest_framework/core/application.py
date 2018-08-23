@@ -6,7 +6,8 @@ from rest_framework.conf import settings
 from rest_framework.core import urls
 from rest_framework.core.request import Request
 from rest_framework.core.router import Route
-from rest_framework.core.router import Router, RouterStrategy
+from rest_framework.core.router.router import Router, RouterStrategy
+from rest_framework.log import configure_logging
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +31,7 @@ class Application:
             self.register_route(pattern, handler=handler, name=name, **handler_kwargs)
 
     def initialize(self):
+        configure_logging(settings.LOGGING)
         self._load_route()
 
     def register_route(self, pattern, handler, name=None, **kwargs):

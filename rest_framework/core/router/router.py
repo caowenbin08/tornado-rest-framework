@@ -4,13 +4,11 @@ from collections import deque
 from typing import get_type_hints
 from inspect import iscoroutinefunction, signature
 from .parser import PatternParser
-from rest_framework.core.limits import RouteLimits
 from rest_framework.utils.router import clean_route_name, clean_methods
 from rest_framework.core.exceptions import ReverseNotFound, NotFound, MissingComponent, \
     MethodNotAllowed
 from rest_framework.core.request.request import Request
-from rest_framework.core.cache.cache import CacheEngine
-from rest_framework.core.responses.responses import RedirectResponse
+# from rest_framework.core.responses.responses import RedirectResponse
 
 
 class RouterStrategy:
@@ -83,16 +81,16 @@ class Router:
                         else clone.pattern + b'/'
                     self.add_route(clone.clone(pattern), check_slashes=False, prefixes={'': ''})
 
-                elif self.strategy == RouterStrategy.REDIRECT:
-                    async def redirect_handler():
-                        return RedirectResponse(clone.pattern.decode(), status_code=301)
-                    redirect_route = clone.clone(
-                        handler=redirect_handler, methods=('GET', ),
-                        dynamic=False,
-                        pattern=clone.pattern[:-1] if clone.pattern.endswith(b'/')
-                        else clone.pattern + b'/'
-                    )
-                    self.add_route(redirect_route, check_slashes=False, prefixes={'': ''})
+                # elif self.strategy == RouterStrategy.REDIRECT:
+                #     async def redirect_handler():
+                #         return RedirectResponse(clone.pattern.decode(), status_code=301)
+                #     redirect_route = clone.clone(
+                #         handler=redirect_handler, methods=('GET', ),
+                #         dynamic=False,
+                #         pattern=clone.pattern[:-1] if clone.pattern.endswith(b'/')
+                #         else clone.pattern + b'/'
+                #     )
+                #     self.add_route(redirect_route, check_slashes=False, prefixes={'': ''})
 
     def build_url(self, _name: str, *args, **kwargs):
         try:
@@ -133,8 +131,9 @@ class Router:
         raise NotFound()
 
     def get_route(self, request: Request) -> 'Route':
+        print("---get_routeget_routeget_route---")
         try:
-            route = self._find_route(request.parsed_url.path, request.method)
+            route = self._find_route(request.url.path, request.method)
             return route
         except NotFound:
             return self.default_handlers[404]
@@ -153,13 +152,13 @@ class Router:
 class Route:
 
     def __init__(self, pattern: bytes, handler, methods=None, parent=None, app=None,  dynamic=None,
-                 name: str = None, cache: CacheEngine = None, limits: RouteLimits=None):
+                 name: str = None):
         self.name = name or str(uuid.uuid4())
         self.handler = handler
         self.app = app
         self.parent = parent
         self.pattern = pattern
-        self.components = self.extract_components(self.handler)
+        self.components = self.extract_components()
         self.receive_params = len(self.components)
         self.is_coroutine = iscoroutinefunction(handler)
         self.methods = clean_methods(methods)
@@ -178,19 +177,17 @@ class Route:
             raise Exception(f'Type hint your route ({self.name}) params so Vibora can optimize stuff.')
         return tuple(filter(lambda x: x[0] != 'return', hints.items()))
 
-    def call_handler(self, request: Request, components):
+    def call_handler(self, request: Request):
         if not self.receive_params:
             return self.handler()
         else:
             if self.has_parameters:
                 match = self.regex.match(request.url)
             function_params = {}
+            print("---self.params_book--", self.params_book)
             try:
-                for name, type_ in self.components:
-                    if name in self.params_book:
-                        function_params[name] = PatternParser.CAST[type_](match.group(name))
-                    else:
-                        function_params[name] = components.get(type_)
+                for name in self.params_book:
+                    function_params[name] = match.group(name)
             except MissingComponent as error:
                 error.route = self
                 raise error

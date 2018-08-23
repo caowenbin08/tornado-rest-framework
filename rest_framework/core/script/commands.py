@@ -1,14 +1,10 @@
 # -*- coding: utf-8 -*-
 import re
-import os
 import inspect
 import argparse
 import asyncio
-from importlib import import_module
-from rest_framework.conf import settings
 from rest_framework.core import singnals
-from rest_framework.core.application import Application
-from rest_framework.log import configure_logging
+from rest_framework.core.application import get_application
 
 PATTERN = re.compile('^[a-zA-Z]+[a-zA-Z_]*[a-zA-Z]$')
 
@@ -211,76 +207,22 @@ class Server(Command):
     def get_options(self):
 
         options = (
-
+            Option('-host', '--host',
+                   dest='host',
+                   type=str,
+                   help="Application address",
+                   default="127.0.0.1"),
             Option('-p', '--port',
                    dest='port',
                    type=int,
                    help="Application port, the default is 5000",
                    default=5000),
 
-            Option('-d', '--debug',
-                   action='store_true',
-                   help="Whether to start the debug mode",
-                   default=None),
-
-            Option('-s', '--settings',
-                   type=str,
-                   dest="settings",
-                   help=(
-                       'The Python path to a settings module, e.g. '
-                       '"myproject.settings.main". If this isn\'t provided, the '
-                       'TORNADO_REST_SETTINGS_MODULE environment variable will be used.'
-                   )),
-
-            Option("-w", "--workers", dest="workers", type=int,
-                   help='Open the number of sockets'),
-
         )
 
         return options
 
-    def url_patterns(self, rules):
-        urlconf_module = settings.ROOT_URLCONF if rules is None else rules
-        if isinstance(urlconf_module, str):
-            urlconf_module = import_module(urlconf_module)
-
-        urlpatterns = getattr(urlconf_module, 'urlpatterns', [])
-
-        url_specs = []
-        for url_spec in urlpatterns:
-            if isinstance(url_spec, list):
-                url_specs.extend(url_spec)
-            else:
-                url_specs.append(url_spec)
-
-        return url_specs
-
-    def run(self, app, port, **kwargs):
-        """
-        :param app: 应用对象，目前为None
-        :param port:
-        :return:
-        """
-        settings_path = kwargs.get("settings", None)
-        if settings_path:
-            os.environ['TORNADO_REST_SETTINGS_MODULE'] = settings_path
-
-        rules = kwargs.get("rules", None)
-        urlpatterns = self.url_patterns(rules)
-        debug = kwargs.pop("debug", None)
-        debug = debug if debug is not None else settings.DEBUG
-        workers = kwargs.get("workers", None)
-
-        try:
-            import uvloop
-            asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-        except ImportError:
-            pass
-        app = Application()
-        for pattern, handler, handler_kwargs, name in urlpatterns:
-            pattern = pattern.strip("^").strip("$")
-            app.register_view(pattern, handler=handler, name=name, **handler_kwargs)
-
+    def run(self, app, host, port, **kwargs):
+        app = get_application()
         singnals.app_started.send(self)
-        configure_logging(settings.LOGGING)
-        app.run(debug=debug, port=port, workers=workers)
+        app.run(host=host, port=port)
