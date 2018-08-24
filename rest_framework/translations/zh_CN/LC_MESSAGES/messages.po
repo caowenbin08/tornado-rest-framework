@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version:  zh_Hans_CN\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2018-07-24 21:16+0800\n"
+"POT-Creation-Date: 2018-08-24 15:58+0800\n"
 "PO-Revision-Date: 2018-01-02 20:29+0800\n"
 "Last-Translator: \n"
 "Language: zh_Hans_CN\n"
@@ -18,31 +18,31 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.5.1\n"
 
-#: core/exceptions.py:116
+#: core/exceptions.py:120
 msgid "A server error occurred"
 msgstr "服务器异常"
 
-#: core/exceptions.py:150
+#: core/exceptions.py:154
 msgid "Invalid input."
 msgstr "请求参数非法"
 
-#: core/exceptions.py:172
+#: core/exceptions.py:176
 msgid "Malformed request"
 msgstr "请求数据解析失败"
 
-#: core/exceptions.py:181
+#: core/exceptions.py:185
 msgid "Invalid page"
 msgstr "无效页码"
 
-#: core/pagination.py:180
+#: core/pagination.py:163
 msgid "The page number must be a number or page string"
 msgstr "页码必须是​​数字或页码简称字符串标记"
 
-#: core/pagination.py:186
+#: core/pagination.py:169
 msgid "The page number must be greater than 1"
 msgstr "页码必须大于1"
 
-#: core/pagination.py:193
+#: core/pagination.py:176
 msgid "The page number exceeds the total page number"
 msgstr "页码超过了总页码"
 
@@ -146,6 +146,16 @@ msgstr "请输入有效的手机号码"
 #: core/validators.py:561
 msgid "Enter a valid phone number or email address"
 msgstr "输入有效的手机号码或电子邮件地址"
+
+#: core/views.py:88
+#, python-format
+msgid "Unsupported media type `%s` in request"
+msgstr "不支持当前请求的格式 `%s`"
+
+#: core/views.py:123 core/views.py:135 views/generics.py:152
+#: views/generics.py:170
+msgid "Internal Server Error"
+msgstr "服务器异常"
 
 #: forms/fields.py:48 forms/validators.py:89
 msgid "This field is required"
@@ -345,20 +355,11 @@ msgstr "网关超时"
 msgid "Cannot fulfill request"
 msgstr "服务器不支持请求中所用的 HTTP 协议版本"
 
-#: views/generics.py:138
-#, python-format
-msgid "Unsupported media type `%s` in request"
-msgstr "不支持当前请求的格式 `%s`"
-
-#: views/generics.py:201 views/generics.py:328 views/generics.py:346
-msgid "Internal Server Error"
-msgstr "服务器异常"
-
-#: views/generics.py:336
+#: views/generics.py:160
 msgid "Insert failed, the reason may be foreign key constraints"
 msgstr "插入数据失败，可能脏数据或外键约束引起的"
 
-#: views/generics.py:460 views/generics.py:474
+#: views/generics.py:276 views/generics.py:290
 msgid "Resource data does not exist"
 msgstr "请求资源数据不存在"
 

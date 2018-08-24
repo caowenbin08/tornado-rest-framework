@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2018-07-24 21:16+0800\n"
+"POT-Creation-Date: 2018-08-24 15:58+0800\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,31 +17,31 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Generated-By: Babel 2.5.1\n"
 
-#: core/exceptions.py:116
+#: core/exceptions.py:120
 msgid "A server error occurred"
 msgstr ""
 
-#: core/exceptions.py:150
+#: core/exceptions.py:154
 msgid "Invalid input."
 msgstr ""
 
-#: core/exceptions.py:172
+#: core/exceptions.py:176
 msgid "Malformed request"
 msgstr ""
 
-#: core/exceptions.py:181
+#: core/exceptions.py:185
 msgid "Invalid page"
 msgstr ""
 
-#: core/pagination.py:180
+#: core/pagination.py:163
 msgid "The page number must be a number or page string"
 msgstr ""
 
-#: core/pagination.py:186
+#: core/pagination.py:169
 msgid "The page number must be greater than 1"
 msgstr ""
 
-#: core/pagination.py:193
+#: core/pagination.py:176
 msgid "The page number exceeds the total page number"
 msgstr ""
 
@@ -144,6 +144,16 @@ msgstr ""
 
 #: core/validators.py:561
 msgid "Enter a valid phone number or email address"
+msgstr ""
+
+#: core/views.py:88
+#, python-format
+msgid "Unsupported media type `%s` in request"
+msgstr ""
+
+#: core/views.py:123 core/views.py:135 views/generics.py:152
+#: views/generics.py:170
+msgid "Internal Server Error"
 msgstr ""
 
 #: forms/fields.py:48 forms/validators.py:89
@@ -344,20 +354,11 @@ msgstr ""
 msgid "Cannot fulfill request"
 msgstr ""
 
-#: views/generics.py:138
-#, python-format
-msgid "Unsupported media type `%s` in request"
-msgstr ""
-
-#: views/generics.py:201 views/generics.py:328 views/generics.py:346
-msgid "Internal Server Error"
-msgstr ""
-
-#: views/generics.py:336
+#: views/generics.py:160
 msgid "Insert failed, the reason may be foreign key constraints"
 msgstr ""
 
-#: views/generics.py:460 views/generics.py:474
+#: views/generics.py:276 views/generics.py:290
 msgid "Resource data does not exist"
 msgstr ""
 

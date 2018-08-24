@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import time
 import logging
 import traceback
 import asyncio
