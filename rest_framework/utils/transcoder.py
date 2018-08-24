@@ -3,8 +3,6 @@ import datetime
 import binascii
 from decimal import Decimal
 
-from rest_framework.core import exceptions
-
 
 _PROTECTED_TYPES = (int, type(None), float, Decimal, datetime.datetime, datetime.date, datetime.time)
 
@@ -28,10 +26,8 @@ def force_text(s, encoding='utf-8', strings_only=False, errors='strict'):
         else:
             s = s.decode(encoding, errors)
     except UnicodeDecodeError as e:
-        if not isinstance(s, Exception):
-            raise exceptions.UnicodeDecodeException(s, *e.args)
-        else:
-            s = ' '.join(force_text(arg, encoding, strings_only, errors) for arg in s)
+        s = ' '.join(force_text(arg, encoding, strings_only, errors) for arg in s)
+
     return s
 
 

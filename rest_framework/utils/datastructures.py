@@ -2,7 +2,6 @@
 from itertools import repeat
 
 
-
 def is_immutable(self):
     raise TypeError('%r objects are immutable' % self.__class__.__name__)
 

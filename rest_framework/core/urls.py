@@ -5,9 +5,6 @@ from rest_framework.utils.functional import import_object
 
 
 def url(pattern, handler, name=None, prefix='', **kwargs):
-    """
-    指定URL和处理程序之间的映射，即tornado.web.URLSpec
-    """
     if isinstance(handler, (list, tuple)):
         return [(pattern + p, h, k, n) for p, h, k, n in handler]
 

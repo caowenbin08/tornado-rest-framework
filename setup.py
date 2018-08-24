@@ -24,13 +24,6 @@ setup(
     ]},
     ext_modules=[
         Extension(
-            "rest_framework.core.router.router",
-            ["rest_framework/core/router/router.c"],
-            extra_compile_args=['-O3'],
-            include_dirs=['.']
-        ),
-
-        Extension(
             "rest_framework.lib.orm.speedups",
             ["rest_framework/lib/orm/speedups.c"],
             extra_compile_args=['-O3'],
@@ -38,10 +31,9 @@ setup(
         ),
     ],
     install_requires=[
-        "uvloop==0.10.2"
         "pytz>=2017.3",
         "blinker>=1.4",
         "Babel>=2.5.1",
-        "ujson==1.35"
+        "uvicorn>=0.3.2"
     ]
 )

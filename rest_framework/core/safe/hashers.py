@@ -2,6 +2,7 @@
 """
 关于处理密码加密的处理
 """
+import time
 import base64
 import binascii
 import functools
@@ -39,17 +40,15 @@ def check_password(password, encoded_password, restpwd=None, preferred='default'
     :param preferred:
     :return:
     """
-
+    s = time.time()
     if password is None or not is_password_usable(encoded_password):
         return False
 
     preferred = get_hasher(preferred)
     hasher = identify_hasher(encoded_password)
-
     hasher_changed = hasher.algorithm != preferred.algorithm
     must_update = hasher_changed or preferred.must_update(encoded_password)
     is_correct = hasher.verify(password, encoded_password)
-
     # if not is_correct and not hasher_changed and must_update:
     #     hasher.harden_runtime(password, encoded_password)
 

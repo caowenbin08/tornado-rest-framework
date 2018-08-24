@@ -5,8 +5,9 @@ import uvicorn
 from rest_framework.conf import settings
 from rest_framework.core import urls
 from rest_framework.core.request import Request
-from rest_framework.core.router import Route
-from rest_framework.core.router.router import Router, RouterStrategy
+from rest_framework.core.router import Router, Route
+from rest_framework.core.translation import babel
+from rest_framework.core.views import ErrorHandler
 from rest_framework.log import configure_logging
 
 logger = logging.getLogger(__name__)
@@ -14,15 +15,18 @@ logger = logging.getLogger(__name__)
 
 class Application:
 
-    def __init__(self, router_strategy=RouterStrategy.CLONE, request_class: Type[Request]=Request):
-        self.router = Router(strategy=router_strategy)
-        if not issubclass(request_class, Request):
-            raise ValueError(
-                'class_obj must be a child of the Vibora Request class. '
-                '(from binhua.request import Request)'
-            )
+    def __init__(self, request_class: Type[Request]=Request):
+        self.router = Router()
         self.request_class = request_class
         self.initialize()
+
+    def _add_error_routes(self):
+        route_name = ErrorHandler.__name__
+        for status_code in (404, 405, 500):
+            kw = {"status_code": status_code}
+            view_func = ErrorHandler.as_view(name=route_name, application=self, **kw)
+            route = Route(b"", view_func, parent=self, name=route_name)
+            self.router.default_handlers[status_code] = route
 
     def _load_route(self):
         urlpatterns = urls.url_patterns(settings.ROOT_URLCONF)
@@ -33,6 +37,9 @@ class Application:
     def initialize(self):
         configure_logging(settings.LOGGING)
         self._load_route()
+        self._add_error_routes()
+        babel.load_translations()
+        self.router.check_integrity()
 
     def register_route(self, pattern, handler, name=None, **kwargs):
         route_name = handler.__name__ if name is None else name

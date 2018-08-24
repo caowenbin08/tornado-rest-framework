@@ -3255,6 +3255,7 @@ class SelectQuery(Query):
         else:
             return self._qr
 
+    @returns_clone
     def real(self):
         """
         实时查询，去掉脏缓存
@@ -4641,7 +4642,7 @@ class Model(with_metaclass(BaseModel)):
         self._data = self._meta.get_default_dict()
         self._dirty = set(self._data)
         self._obj_cache = {}
-        self._old_instance = None
+        # self._old_instance = None
 
         for k, v in kwargs.items():
             setattr(self, k, v)
@@ -4832,7 +4833,7 @@ class Model(with_metaclass(BaseModel)):
 
     def _prepare_instance(self):
         self._dirty.clear()
-        self._old_instance = deepcopy(self)
+        # self._old_instance = deepcopy(self)
         self.prepared()
 
     def prepared(self):

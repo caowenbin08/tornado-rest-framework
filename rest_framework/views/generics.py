@@ -3,8 +3,8 @@ import re
 import sys
 import asyncio
 
-from rest_framework.core.responses import JsonResponse
-from rest_framework.core.views import APIView
+from rest_framework.core.response import Response
+from rest_framework.core.views import RequestHandler
 from rest_framework.core import exceptions
 from rest_framework.core.exceptions import ErrorDetail, SkipFilterError, HTTPError
 from rest_framework.lib.orm import IntegrityError
@@ -18,8 +18,7 @@ from rest_framework.core.db import models
 from rest_framework.utils import status
 from rest_framework.utils.cached_property import cached_property
 from rest_framework.utils.functional import import_object
-from rest_framework.core.result import Result
-from rest_framework.core.translation import lazy_translate as _, babel
+from rest_framework.core.translation import lazy_translate as _
 
 __all__ = [
     'GenericAPIHandler',
@@ -44,7 +43,6 @@ def _clean_credentials(credentials):
     sensitive_credentials = re.compile('api|token|key|secret|password|signature|pwd', re.I)
     cleansed_substitute = '********************'
     result = {}
-    print("--credentials--", credentials)
     for key, value in credentials.items():
         key = force_text(key)
         if sensitive_credentials.search(key):
@@ -54,7 +52,7 @@ def _clean_credentials(credentials):
     return result
 
 
-class BaseAPIHandler(APIView):
+class BaseAPIHandler(RequestHandler):
     """
     基础接口处理类
     """
@@ -91,7 +89,7 @@ class BaseAPIHandler(APIView):
                 "url": self.request.url,
                 "method": self.request.method,
                 "host": self.request.headers.get("Host", ""),
-                "ip": self.request.client_ip(),
+                "client_ip": self.request.client_ip(),
                 "request_params": params,
                 "request_status": status_code,
                 "agent": self.request.headers.get("User-Agent", "").lower(),
@@ -116,21 +114,21 @@ class BaseAPIHandler(APIView):
 
     def write_response(self, data, status_code=status.HTTP_200_OK, headers=None,
                        content_type="application/json", **kwargs):
-        if isinstance(data, Result):
+        if isinstance(data, Response):
             return data
 
-        return Result(
-            data=data,
+        return Response(
+            content=data,
             status_code=status_code,
             headers=headers,
             content_type=content_type
         )
 
     def write_error(self, content, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR):
-        if isinstance(content, Result):
-            response = self.finalize_response(content)
-            return response
-        return JsonResponse(content=content, status_code=status_code)
+        if isinstance(content, Response):
+            return content
+
+        return Response(content=content, status_code=status_code)
 
     def pre_handle_exception(self, exc):
         """
@@ -178,13 +176,7 @@ class BaseAPIHandler(APIView):
         return error_response
 
     def finalize_response(self, response, *args, **kwargs):
-        if isinstance(response, JsonResponse):
-            return response
-
-        if not isinstance(response, Result):
-            raise TypeError("Request return value types must be the Result")
-
-        return JsonResponse(content=response.data, status_code=response.status_code)
+        return response
 
 
 class GenericAPIHandler(BaseAPIHandler):

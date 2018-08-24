@@ -1,20 +1,66 @@
-import uuid
+import re
 import hashlib
 from collections import deque
-from typing import get_type_hints
-from inspect import iscoroutinefunction, signature
-from .parser import PatternParser
-from rest_framework.utils.router import clean_route_name, clean_methods
-from rest_framework.core.exceptions import ReverseNotFound, NotFound, MissingComponent, \
-    MethodNotAllowed
-from rest_framework.core.request.request import Request
-# from rest_framework.core.responses.responses import RedirectResponse
+from typing import Tuple, Iterable, Union
+from inspect import iscoroutinefunction
+
+from rest_framework.core.request import Request
+from rest_framework.core.exceptions import RouteConfigurationError
+from rest_framework.core.exceptions import ReverseNotFound, NotFound, MethodNotAllowed
 
 
-class RouterStrategy:
-    STRICT = 1
-    REDIRECT = 2
-    CLONE = 3
+class PatternParser:
+    PARAM_REGEX = re.compile(b"(\(\?P<.*?>.*?\)|<.*?>)")
+    DYNAMIC_CHARS = bytearray(b'*?.[]()<>')
+
+    CAST = {
+        str: lambda x: x.decode('utf-8'),
+        int: lambda x: int(x),
+        float: lambda x: float(x)
+    }
+
+    @classmethod
+    def validate_param_name(cls, name: bytes):
+        # TODO:
+        if b':' in name:
+            raise RouteConfigurationError(
+                'Special characters are not allowed in param name. '
+                'Use type hints in function parameters to cast the variable '
+                'or regexes with named groups to ensure only a specific URL matches.'
+            )
+
+    @classmethod
+    def extract_params(cls, pattern: bytes) -> tuple:
+        """
+
+        :param pattern:
+        :return:
+        """
+        params = []
+        new_pattern = pattern
+        simplified_pattern = pattern
+        groups = cls.PARAM_REGEX.findall(pattern)
+        for group in groups:
+            if group.startswith(b"(?P"):
+                name = group[group.find(b"<") + 1: group.find(b">")]
+                simplified_pattern = new_pattern
+            else:
+                name = group[1:-1]  # Removing <> chars
+                simplified_pattern = simplified_pattern.replace(group, b'$' + name)
+                new_pattern = new_pattern.replace(group, b'(?P<' + name + b'>[^/]+)')
+
+            cls.validate_param_name(name)
+            params.append(name.decode())
+        return re.compile(new_pattern), params, simplified_pattern
+
+    @classmethod
+    def is_dynamic_pattern(cls, pattern: bytes) -> bool:
+        for index, char in enumerate(pattern):
+            if char in cls.DYNAMIC_CHARS:
+                if index > 0 and pattern[index - 1] == '\\':
+                    continue
+                return True
+        return False
 
 
 class LRUCache:
@@ -35,8 +81,7 @@ class LRUCache:
 
 
 class Router:
-    def __init__(self, strategy: int):
-        self.strategy = strategy
+    def __init__(self):
         self.reverse_index = {}
         self.routes = {}
         self.dynamic_routes = []
@@ -59,38 +104,14 @@ class Router:
 
         self.reverse_index[route.name] = route
 
-    def add_route(self, route: 'Route', prefixes: dict = None, check_slashes: bool = True):
-        if prefixes is None:
-            prefixes = {'': ''}
+    def add_route(self, route: 'Route', check_slashes: bool = True):
+        self._add_route_to_cache(route)
+        conditions = [not route.is_dynamic, check_slashes is True]
 
-        for name_prefix, pattern_prefix in prefixes.items():
-            clone = route.clone(pattern=pattern_prefix.encode() + route.pattern,
-                                name=clean_route_name(name_prefix, route.name))
-            self._add_route_to_cache(clone)
-
-            # Handling slashes strategy.
-            conditions = [
-                not clone.is_dynamic,
-                check_slashes is True,
-                b'GET' in clone.methods
-            ]
-
-            if all(conditions):
-                if self.strategy == RouterStrategy.CLONE:
-                    pattern = clone.pattern[:-1] if clone.pattern.endswith(b'/') \
-                        else clone.pattern + b'/'
-                    self.add_route(clone.clone(pattern), check_slashes=False, prefixes={'': ''})
-
-                # elif self.strategy == RouterStrategy.REDIRECT:
-                #     async def redirect_handler():
-                #         return RedirectResponse(clone.pattern.decode(), status_code=301)
-                #     redirect_route = clone.clone(
-                #         handler=redirect_handler, methods=('GET', ),
-                #         dynamic=False,
-                #         pattern=clone.pattern[:-1] if clone.pattern.endswith(b'/')
-                #         else clone.pattern + b'/'
-                #     )
-                #     self.add_route(redirect_route, check_slashes=False, prefixes={'': ''})
+        if all(conditions):
+            pattern = route.pattern[:-1] if route.pattern.endswith(b'/') \
+                else route.pattern + b'/'
+            self.add_route(route.clone(pattern), check_slashes=False)
 
     def build_url(self, _name: str, *args, **kwargs):
         try:
@@ -121,7 +142,6 @@ class Router:
             return route
         except KeyError:
             pass
-
         for route in self.dynamic_routes:
             if route.regex.fullmatch(url):
                 self.cache.set(cache_key, route)
@@ -131,7 +151,6 @@ class Router:
         raise NotFound()
 
     def get_route(self, request: Request) -> 'Route':
-        print("---get_routeget_routeget_route---")
         try:
             route = self._find_route(request.url.path, request.method)
             return route
@@ -149,17 +168,29 @@ class Router:
                 raise NotImplementedError(f'Please implement the default {http_code} route.')
 
 
+def clean_methods(methods: Iterable[Union[str, bytes]]) -> Tuple[bytes]:
+    if methods:
+        parsed_methods = set()
+        for method in methods:
+            if isinstance(method, str):
+                parsed_methods.add(method.upper().encode())
+            elif isinstance(method, bytes):
+                parsed_methods.add(method.upper())
+            else:
+                raise Exception('Methods should be str or bytes.')
+        return tuple(parsed_methods)
+    return b'GET',
+
+
 class Route:
 
     def __init__(self, pattern: bytes, handler, methods=None, parent=None, app=None,  dynamic=None,
                  name: str = None):
-        self.name = name or str(uuid.uuid4())
+        self.name = name if name else handler.__name__
         self.handler = handler
         self.app = app
         self.parent = parent
         self.pattern = pattern
-        self.components = self.extract_components()
-        self.receive_params = len(self.components)
         self.is_coroutine = iscoroutinefunction(handler)
         self.methods = clean_methods(methods)
         self.regex, self.params_book, self.simplified_pattern = PatternParser.extract_params(pattern)
@@ -168,34 +199,14 @@ class Route:
             self.is_dynamic = PatternParser.is_dynamic_pattern(self.regex.pattern)
         else:
             self.is_dynamic = dynamic
-        # self.cache = cache
-        # self.limits = limits
-
-    def extract_components(self):
-        hints = get_type_hints(self.handler)
-        if not hints and len(signature(self.handler).parameters) > 0:
-            raise Exception(f'Type hint your route ({self.name}) params so Vibora can optimize stuff.')
-        return tuple(filter(lambda x: x[0] != 'return', hints.items()))
 
     def call_handler(self, request: Request):
-        if not self.receive_params:
-            return self.handler()
-        else:
-            if self.has_parameters:
-                match = self.regex.match(request.url)
-            function_params = {}
-            print("---self.params_book--", self.params_book)
-            try:
-                for name in self.params_book:
-                    function_params[name] = match.group(name)
-            except MissingComponent as error:
-                error.route = self
-                raise error
-            if hasattr(self.handler, "view_class"):
-                for name in self.params_book:
-                    function_params[name] = match.group(name)
+        if self.has_parameters:
+            match = self.regex.match(request.url.path)
+            function_params = {name: match.group(name) for name in self.params_book}
+            return self.handler(request, **function_params)
 
-            return self.handler(**function_params)
+        return self.handler(request)
 
     def build_url(self, **kwargs):
         if not self.is_dynamic:

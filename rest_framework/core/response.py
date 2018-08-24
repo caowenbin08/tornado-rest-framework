@@ -1,12 +1,9 @@
-
-from ..datastructures import MutableHeaders
-from ..types import Receive, Send
-import json
 import typing
+from rest_framework.core.types import Receive, Send
+from rest_framework.utils.escape import json_encode
 
 
 class Response:
-    media_type = None
     charset = "utf-8"
 
     def __init__(
@@ -14,17 +11,20 @@ class Response:
         content: typing.Any,
         status_code: int = 200,
         headers: dict = None,
-        media_type: str = None,
+        content_type: bytes = "application/json",
     ) -> None:
+        self.content_type = content_type
         self.body = self.render(content)
         self.status_code = status_code
-        if media_type is not None:
-            self.media_type = media_type
         self.init_headers(headers)
 
     def render(self, content: typing.Any) -> bytes:
+        if self.content_type == "application/json":
+            return json_encode(content).encode(self.charset)
+
         if isinstance(content, bytes):
             return content
+
         return content.encode(self.charset)
 
     def init_headers(self, headers):
@@ -46,19 +46,13 @@ class Response:
             content_length = str(len(body))
             raw_headers.append((b"content-length", content_length.encode("latin-1")))
 
-        content_type = self.media_type
+        content_type = self.content_type
         if content_type is not None and populate_content_type:
             if content_type.startswith("text/"):
                 content_type += "; charset=" + self.charset
             raw_headers.append((b"content-type", content_type.encode("latin-1")))
 
         self.raw_headers = raw_headers
-
-    @property
-    def headers(self):
-        if not hasattr(self, "_headers"):
-            self._headers = MutableHeaders(self.raw_headers)
-        return self._headers
 
     async def __call__(self, receive: Receive, send: Send) -> None:
         await send(
@@ -69,24 +63,3 @@ class Response:
             }
         )
         await send({"type": "http.response.body", "body": self.body})
-
-
-class HTMLResponse(Response):
-    media_type = "text/html"
-
-
-class PlainTextResponse(Response):
-    media_type = "text/plain"
-
-
-class JsonResponse(Response):
-    media_type = "application/json"
-    options = {
-        "ensure_ascii": False,
-        "allow_nan": False,
-        "indent": None,
-        "separators": (",", ":"),
-    }  # type: typing.Dict[str, typing.Any]
-
-    def render(self, content: typing.Any) -> bytes:
-        return json.dumps(content, **self.options).encode("utf-8")

@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
 try:
-    import ujson as json
+    import ujson as jsonlib
+    has_ujson = True
 except ImportError:
-    import json
+    import json as jsonlib
+    has_ujson = False
 
-try:
-    import uvloop as asynclib
-except ImportError:
-    import asyncio as asynclib

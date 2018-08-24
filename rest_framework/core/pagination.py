@@ -4,7 +4,7 @@
 """
 from math import ceil
 from collections import OrderedDict
-from rest_framework.core.result import Result
+from rest_framework.core.response import Response
 from rest_framework.core.translation import lazy_translate as _
 from rest_framework.core.exceptions import PaginationError
 from rest_framework.lib.orm.query import AsyncEmptyQuery
@@ -211,7 +211,7 @@ class PageNumberPagination(BasePagination):
 
     async def get_paginated_response(self, data):
         count = self.paginator.count
-        return Result(OrderedDict([
+        return Response(OrderedDict([
             ('count', count),
             ('num_pages', self.paginator.num_pages),
             ('results', data)
@@ -285,7 +285,7 @@ class LimitOffsetPagination(BasePagination):
         return list(queryset[self.offset:self.offset + self.limit])
 
     def get_paginated_response(self, data):
-        return Result(OrderedDict([
+        return Response(OrderedDict([
             ('count', self.count),
             ('results', data)
         ]))

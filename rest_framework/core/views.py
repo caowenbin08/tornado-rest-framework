@@ -5,7 +5,7 @@ import traceback
 import asyncio
 
 from rest_framework.core import codecs
-from rest_framework.core.responses import JsonResponse
+from rest_framework.core.response import Response
 from rest_framework.utils import status
 from rest_framework.core.request import Request
 from rest_framework.core.translation import lazy_translate as _
@@ -15,7 +15,7 @@ SUPPORTED_METHODS = ('get', 'post', 'head', 'options', 'delete', 'put', 'patch')
 logger = logging.getLogger(__name__)
 
 
-class MethodViewType(type):
+class HandlerMethodType(type):
 
     def __new__(mcs, name, bases, d):
         rv = type.__new__(mcs, name, bases, d)
@@ -29,7 +29,7 @@ class MethodViewType(type):
         return rv
 
 
-class BaseView:
+class BaseRequestHandler:
     methods = None
 
     def dispatch_request(self):
@@ -50,7 +50,7 @@ class BaseView:
         return view
 
 
-class APIView(BaseView, metaclass=MethodViewType):
+class RequestHandler(BaseRequestHandler, metaclass=HandlerMethodType):
 
     def __init__(self, application, request, **kwargs):
         self.application = application
@@ -64,9 +64,8 @@ class APIView(BaseView, metaclass=MethodViewType):
         pass
 
     def _parse_query_arguments(self):
-        query_arguments = self.request.args.values
-        return {k: [v for v in vs] if len(vs) > 1 else vs[-1]
-                for k, vs in query_arguments.items() if vs}
+        query_arguments = self.request.query_params
+        return {k: v for k, v in query_arguments if v}
 
     @staticmethod
     def __select_parser(content_type):
@@ -76,16 +75,13 @@ class APIView(BaseView, metaclass=MethodViewType):
         return None
 
     async def prepare(self):
-        """
-        解析请求参数
-        :return:
-        """
         method = self.request.method.lower()
         content_type = self.request.headers.get("Content-Type", "").lower()
         if not content_type or method == b"get":
             self.request_data = self._parse_query_arguments()
             if self.path_kwargs:
                 self.request_data.update(self.path_kwargs)
+            self.request.data = self.request_data
             return
 
         parser = self.__select_parser(content_type)
@@ -98,29 +94,25 @@ class APIView(BaseView, metaclass=MethodViewType):
             )
 
         self.request_data = await parser.parse(self.request)
+        self.request.data = self.request_data
 
     def write_error(self, content, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR):
-        return JsonResponse(content=content, status_code=status_code)
+        return Response(content=content, status_code=status_code)
 
     async def finalize_response(self, response):
         return response
 
     async def dispatch_request(self, *args, **kwargs):
         method = self.request.method.lower().decode("utf8")
-        if method not in SUPPORTED_METHODS:
-            raise HTTPError(405)
-
         self.path_args = args
         self.path_kwargs = kwargs
-        handler = getattr(self, method)
-        start_time = time.time()
+        handler = getattr(self, method, None)
         try:
             await self.prepare()
             result = await handler(*args, **kwargs)
             response = self.finalize_response(result)
             if asyncio.iscoroutine(response):
                 response = await response
-            print("---total time--", time.time() - start_time)
             return response
 
         except Exception as e:
@@ -151,3 +143,11 @@ class APIView(BaseView, metaclass=MethodViewType):
                 "code": "Error"
             }
             return self.write_error(error_content, 500)
+
+
+class ErrorHandler(RequestHandler):
+    def initialize(self, status_code):
+        self._status_code = status_code
+
+    def prepare(self):
+        raise HTTPError(self._status_code)

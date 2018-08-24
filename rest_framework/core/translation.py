@@ -1,23 +1,15 @@
 # -*- coding: utf-8 -*-
 import os
 import logging
-import threading
 from babel import support, Locale
 
 import rest_framework
 from rest_framework.conf import settings
-from rest_framework.core import singnals
 
 logger = logging.getLogger(__name__)
 _translations = {}
 _caches = {}
 _locale_caches = {}
-
-
-class ThreadingLocalContext(threading.local):
-    babel_locale = None
-
-current_local_context = ThreadingLocalContext()
 
 
 class LazyString:
@@ -110,6 +102,9 @@ class Babel:
     _default_domain = "messages"
     _cache = {}
 
+    def __init__(self):
+        self._locale = None
+
     def gen_locale(self, language_code):
         lang = language_code.lower()
         lang = lang.replace("-", "_")
@@ -164,15 +159,10 @@ class Babel:
 
     @property
     def locale(self):
-        locale = current_local_context.babel_locale
-        if locale is None:
-            locale = self.default_locale
-            current_local_context.babel_locale = locale
-        return locale
+        if self._locale is None:
+            self._locale = self.default_locale
 
-    def refresh_locale(self, language):
-        locale = self.gen_locale(language)
-        current_local_context.babel_locale = locale
+        return self._locale
 
     @property
     def translation(self):
@@ -206,7 +196,6 @@ class Babel:
                     continue
 
 babel = Babel()
-singnals.app_started.connect(babel.load_translations)
 
 
 def lazy_translate(string, **variables):
