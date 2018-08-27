@@ -90,9 +90,12 @@ class BaseAPIHandler(RequestHandler):
                 "method": self.request.method,
                 "host": self.request.headers.get("Host", ""),
                 "client_ip": self.request.client_ip(),
-                "request_params": params,
-                "request_status": status_code,
-                "agent": self.request.headers.get("User-Agent", "").lower(),
+                "request_data": params,
+                "http_status_code": status_code,
+                "headers": {
+                    "user-agent": self.request.headers.get("User-Agent", ""),
+                    "content-type": self.request.headers.get("Content-Type", "")
+                },
                 "time_zone": settings.TIME_ZONE,
                 "time": timezone.now().strftime("%Y-%m-%d %H:%M:%S.%f"),
                 "error_info": error_info,
@@ -117,18 +120,13 @@ class BaseAPIHandler(RequestHandler):
         if isinstance(data, Response):
             return data
 
-        return Response(
-            content=data,
-            status_code=status_code,
-            headers=headers,
-            content_type=content_type
-        )
+        return Response(data, status_code=status_code, headers=headers, content_type=content_type)
 
     def write_error(self, content, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR):
         if isinstance(content, Response):
             return content
 
-        return Response(content=content, status_code=status_code)
+        return Response(content, status_code=status_code)
 
     def pre_handle_exception(self, exc):
         """

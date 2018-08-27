@@ -96,7 +96,7 @@ class RequestHandler(BaseRequestHandler, metaclass=HandlerMethodType):
         self.request.data = self.request_data
 
     def write_error(self, content, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR):
-        return Response(content=content, status_code=status_code)
+        return Response(content, status_code=status_code)
 
     async def finalize_response(self, response):
         return response

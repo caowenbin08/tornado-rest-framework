@@ -8,13 +8,13 @@ class Response:
 
     def __init__(
         self,
-        content: typing.Any,
+        data: typing.Any,
         status_code: int = 200,
         headers: dict = None,
         content_type: bytes = "application/json",
     ) -> None:
         self.content_type = content_type
-        self.body = self.render(content)
+        self.body = self.render(data)
         self.status_code = status_code
         self.init_headers(headers)
 
