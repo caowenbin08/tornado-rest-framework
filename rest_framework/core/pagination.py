@@ -125,15 +125,15 @@ class PageNumberPagination(BasePagination):
     # 每页条数
     page_size = 10
     # 页码查询参数变量名
-    page_query_param = b"page"
+    page_query_param = "page"
     # 自定义每页条数的查询参数名，主要作用于在请求参数中自定义每页条数大小,比如定义为page_size,则请求url参数?page_size=2
-    page_size_query_param = b"page_size"
+    page_size_query_param = "page_size"
     # 每页条数最大值
     max_page_size = None
     # 默认可以作为最后页码的字符串集合
-    last_page_strings = (b'last',)
+    last_page_strings = ('last',)
     # 默认可以作为第一页码的字符串集合
-    first_page_strings = (b'first',)
+    first_page_strings = ('first',)
     paginator_class = Paginator
     orphans = 0
     # 当页码超过总页码时，是否允许返回空列表，True代表可以，False代表抛出APIException异常
@@ -241,8 +241,8 @@ class LimitOffsetPagination(BasePagination):
     """
     # 默认分页列表条目数
     default_limit = 10
-    limit_query_param = b'limit'
-    offset_query_param = b'offset'
+    limit_query_param = 'limit'
+    offset_query_param = 'offset'
     # 默认最大的列表条目数, 默认不限制
     max_limit = None
 
