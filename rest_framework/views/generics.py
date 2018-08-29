@@ -60,7 +60,8 @@ class BaseAPIHandler(RequestHandler):
     def _handle_request_exception(self, e):
         status_code = getattr(e, "status_code", status.HTTP_500_INTERNAL_SERVER_ERROR)
         exc_info = sys.exc_info()
-        self._record_log(status_code, exc_info)
+        if status_code >= 500:
+            self._record_log(status_code, exc_info)
         error_response = self.pre_handle_exception(exc_info[1])
         return self.write_error(error_response)
 
@@ -107,10 +108,7 @@ class BaseAPIHandler(RequestHandler):
             if log_extend and isinstance(log_extend, dict):
                 log_context.update(**log_extend)
             log_context = json_encode(log_context)
-            if status_code >= 500:
-                app_logger.error(log_context, exc_info=exc_info)
-            else:
-                app_logger.error(log_context)
+            app_logger.error(log_context, exc_info=exc_info)
 
         loop = asyncio.get_event_loop()
         loop.run_in_executor(None, _record)

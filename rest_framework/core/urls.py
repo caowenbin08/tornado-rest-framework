@@ -4,22 +4,38 @@ from importlib import import_module
 from rest_framework.utils.functional import import_object
 
 
-def url(pattern, handler, name=None, prefix='', **kwargs):
-    if isinstance(handler, (list, tuple)):
-        return [(pattern + p, h, k, n) for p, h, k, n in handler]
+class Url:
+    def __init__(self, pattern, handler, name=None, **kwargs):
+        self.pattern = pattern
+        self.handler = handler
+        self.name = name
+        self.kwargs = kwargs
 
-    elif hasattr(handler, 'urlpatterns'):
-        return [(pattern + p, h, k, n) for p, h, k, n in getattr(handler, 'urlpatterns', [])]
+
+def url(pattern, handler, name=None, prefix='', **kwargs):
+    if isinstance(handler, (list, tuple)) or hasattr(handler, 'urlpatterns'):
+        urls = []
+        if hasattr(handler, 'urlpatterns'):
+            handler = getattr(handler, 'urlpatterns', [])
+
+        for route in handler:
+            if isinstance(route, (list, tuple)):
+                temp = [url(pattern + r.pattern, r.handler, r.name, **r.kwargs) for r in route]
+                urls.extend(temp)
+            else:
+                u = Url(pattern+route.pattern, route.handler, route.name, **route.kwargs)
+                urls.append(u)
+        return urls
 
     elif isinstance(handler, str):
         if prefix.strip():
             handler = prefix + '.' + handler
 
         handler = import_object(handler)
-        return pattern, handler, kwargs, name
+        return Url(pattern, handler, name, **kwargs)
 
     elif callable(handler):
-        return pattern, handler, kwargs, name
+        return Url(pattern, handler, name, **kwargs)
     else:
         raise TypeError('view must be a callable or a list/tuple in the case of include().')
 
@@ -45,6 +61,5 @@ def url_patterns(urlconf_module):
             url_specs.extend(url_spec)
         else:
             url_specs.append(url_spec)
-
     return url_specs
 

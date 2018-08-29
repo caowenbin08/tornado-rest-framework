@@ -30,9 +30,9 @@ class Application:
 
     def _load_route(self):
         urlpatterns = urls.url_patterns(settings.ROOT_URLCONF)
-        for pattern, handler, handler_kwargs, name in urlpatterns:
-            pattern = pattern.strip("^").strip("$")
-            self.register_route(pattern, handler=handler, name=name, **handler_kwargs)
+        for url in urlpatterns:
+            pattern = url.pattern.strip("^").strip("$")
+            self.register_route(pattern, handler=url.handler, name=url.name, **url.kwargs)
 
     def initialize(self):
         configure_logging(settings.LOGGING)
