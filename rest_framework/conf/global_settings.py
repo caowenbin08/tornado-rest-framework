@@ -34,10 +34,10 @@ INSTALLED_APPS = []
 # 注册密码加密方式
 PASSWORD_HASHERS = [
     'rest_framework.core.safe.hashers.PBKDF2PasswordHasher',
-    # 'rest_framework.core.safe.hashers.PBKDF2SHA1PasswordHasher',
-    # 'rest_framework.core.safe.hashers.Argon2PasswordHasher',
-    # 'rest_framework.core.safe.hashers.BCryptSHA256PasswordHasher',
-    # 'rest_framework.core.safe.hashers.BCryptPasswordHasher',
+    'rest_framework.core.safe.hashers.PBKDF2SHA1PasswordHasher',
+    'rest_framework.core.safe.hashers.Argon2PasswordHasher',
+    'rest_framework.core.safe.hashers.BCryptSHA256PasswordHasher',
+    'rest_framework.core.safe.hashers.BCryptPasswordHasher',
 ]
 # 默认的字段异常
 NON_FIELD_ERRORS = "__all__"

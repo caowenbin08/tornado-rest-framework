@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 import re
 import sys
-import asyncio
-
 from rest_framework.core.response import Response
 from rest_framework.core.views import RequestHandler
 from rest_framework.core import exceptions
@@ -74,44 +72,40 @@ class BaseAPIHandler(RequestHandler):
         pass
 
     def _record_log(self, status_code, exc_info, **kwargs):
-        def _record():
-            params = _clean_credentials(self.request_data)
-            exc = exc_info[1]
-            if hasattr(exc, "message"):
-                error_info = exc.message
-            elif hasattr(exc, "messages"):
-                error_info = exc.messages
-            elif hasattr(exc, "detail"):
-                error_info = exc.detail
-            else:
-                error_info = ""
+        params = _clean_credentials(self.request_data)
+        exc = exc_info[1]
+        if hasattr(exc, "message"):
+            error_info = exc.message
+        elif hasattr(exc, "messages"):
+            error_info = exc.messages
+        elif hasattr(exc, "detail"):
+            error_info = exc.detail
+        else:
+            error_info = ""
 
-            log_context = {
-                "url": self.request.url,
-                "method": self.request.method,
-                "host": self.request.headers.get("Host", ""),
-                "client_ip": self.request.client_ip(),
-                "request_data": params,
-                "http_status_code": status_code,
-                "headers": {
-                    "user-agent": self.request.headers.get("User-Agent", ""),
-                    "content-type": self.request.headers.get("Content-Type", "")
-                },
-                "time_zone": settings.TIME_ZONE,
-                "time": timezone.now().strftime("%Y-%m-%d %H:%M:%S.%f"),
-                "error_info": error_info,
-            }
-            if kwargs:
-                log_context.update(**kwargs)
+        log_context = {
+            "url": self.request.url,
+            "method": self.request.method,
+            "host": self.request.headers.get("Host", ""),
+            "client_ip": self.request.client_ip(),
+            "request_data": params,
+            "http_status_code": status_code,
+            "headers": {
+                "user-agent": self.request.headers.get("User-Agent", ""),
+                "content-type": self.request.headers.get("Content-Type", "")
+            },
+            "time_zone": settings.TIME_ZONE,
+            "time": timezone.now().strftime("%Y-%m-%d %H:%M:%S.%f"),
+            "error_info": error_info,
+        }
+        if kwargs:
+            log_context.update(**kwargs)
 
-            log_extend = self.get_log_extend()
-            if log_extend and isinstance(log_extend, dict):
-                log_context.update(**log_extend)
-            log_context = json_encode(log_context)
-            app_logger.error(log_context, exc_info=exc_info)
-
-        loop = asyncio.get_event_loop()
-        loop.run_in_executor(None, _record)
+        log_extend = self.get_log_extend()
+        if log_extend and isinstance(log_extend, dict):
+            log_context.update(**log_extend)
+        log_context = json_encode(log_context)
+        app_logger.error(log_context, exc_info=exc_info)
 
     def write_response(self, data, status_code=status.HTTP_200_OK, headers=None,
                        content_type="application/json", **kwargs):

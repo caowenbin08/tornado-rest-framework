@@ -2,7 +2,6 @@
 """
 关于处理密码加密的处理
 """
-import time
 import base64
 import binascii
 import functools
@@ -40,7 +39,6 @@ def check_password(password, encoded_password, restpwd=None, preferred='default'
     :param preferred:
     :return:
     """
-    s = time.time()
     if password is None or not is_password_usable(encoded_password):
         return False
 
@@ -123,16 +121,12 @@ def identify_hasher(encoded_password):
     return get_hasher(algorithm)
 
 
-def mask_password(encoded_password, show=6, char="*"):
+def mask_password(encoded_password, show=6, shade="*"):
     """
     掩饰密码hash显示
-    :param encoded_password:
-    :param show:
-    :param char:
-    :return:
     """
     masked = encoded_password[:show]
-    masked += char * len(encoded_password[show:])
+    masked += shade * len(encoded_password[show:])
     return masked
 
 
@@ -204,8 +198,6 @@ class PBKDF2PasswordHasher(BasePasswordHasher):
     digest = hashlib.sha256
 
     def encode(self, password, salt, iterations=None):
-        assert password is not None
-        assert salt and '$' not in salt
         if not iterations:
             iterations = self.iterations
         hash_val = pbkdf2(password, salt, iterations, digest=self.digest)
@@ -214,13 +206,11 @@ class PBKDF2PasswordHasher(BasePasswordHasher):
 
     def verify(self, password, encoded_password):
         algorithm, iterations, salt, hash_val = encoded_password.split('$', 3)
-        assert algorithm == self.algorithm
         encoded_password_2 = self.encode(password, salt, int(iterations))
         return constant_time_compare(encoded_password, encoded_password_2)
 
     def safe_summary(self, encoded_password):
         algorithm, iterations, salt, hash_val = encoded_password.split('$', 3)
-        assert algorithm == self.algorithm
         return OrderedDict([
             ('algorithm', algorithm),
             ('iterations', iterations),
