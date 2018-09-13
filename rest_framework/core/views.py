@@ -76,8 +76,8 @@ class RequestHandler(BaseRequestHandler, metaclass=HandlerMethodType):
     async def prepare(self):
         method = self.request.method.lower()
         content_type = self.request.headers.get("Content-Type", "").lower()
+        self.request_data = self._parse_query_arguments()
         if not content_type or method == b"get":
-            self.request_data = self._parse_query_arguments()
             if self.path_kwargs:
                 self.request_data.update(self.path_kwargs)
             self.request.data = self.request_data
@@ -92,7 +92,9 @@ class RequestHandler(BaseRequestHandler, metaclass=HandlerMethodType):
                 status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE
             )
 
-        self.request_data = await parser.parse(self.request)
+        parse_data = await parser.parse(self.request)
+        if parse_data:
+            self.request_data.update(parse_data)
         self.request.data = self.request_data
 
     def write_error(self, content, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR):

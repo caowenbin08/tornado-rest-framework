@@ -141,6 +141,9 @@ class OrderingFilter(BaseFilterBackend):
 
     def remove_invalid_fields(self, request_handler, queryset, ordering_fields):
         valid_fields = self.get_valid_fields(request_handler, queryset)
+        if not isinstance(ordering_fields, str):
+            ordering_fields = str(ordering_fields)
+        ordering_fields = ordering_fields.split(",")
         return [field for field in ordering_fields if field.lstrip('-').lower() in valid_fields]
 
     def construct_ordering(self, ordering, queryset):
@@ -236,9 +239,9 @@ class FilterBackend(BaseFilterBackend):
         filter_class = self.get_filter_class(request_handler, queryset)
 
         if filter_class:
-            filterset = filter_class(request_handler.request_data, queryset)
-            if not await filterset.is_valid() and self.raise_exception:
-                raise ValidationError(await filterset.errors)
-            return await filterset.qs
+            filterset_instance = filter_class(request_handler, queryset)
+            if not await filterset_instance.is_valid() and self.raise_exception:
+                raise ValidationError(await filterset_instance.errors)
+            return await filterset_instance.qs
         return queryset
 

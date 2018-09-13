@@ -348,13 +348,17 @@ class BaseCache:
                 if asyncio.iscoroutine(new_value):
                     new_value = await new_value
 
+                if new_value is None:
+                    return new_value
+
                 try:
                     if asyncio.iscoroutinefunction(self.set):
                         await self.set(cache_key, new_value, timeout=timeout)
                     else:
                         self.set(cache_key, new_value, timeout=timeout)
                 except Exception:
-                    logger.exception("Set cache error, Exception possibly due to cache backend")
+                    logger.exception("Set cache error, Exception possibly due to cache backend",
+                                     exc_info=True)
 
                 finally:
                     return new_value

@@ -6,13 +6,8 @@ from rest_framework.utils.escape import json_encode
 class Response:
     charset = "utf-8"
 
-    def __init__(
-        self,
-        data: typing.Any,
-        status_code: int = 200,
-        headers: dict = None,
-        content_type: bytes = "application/json",
-    ) -> None:
+    def __init__(self, data: typing.Any, status_code: int = 200, headers: dict = None,
+                 content_type="application/json") -> None:
         self.content_type = content_type
         self.body = self.render(data)
         self.status_code = status_code

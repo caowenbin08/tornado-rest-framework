@@ -141,11 +141,11 @@ class QueryParams(typing.Mapping[str, str]):
             value = []
         elif isinstance(value, str):
             value = parse_qsl(value)
-
         if hasattr(value, "items"):
             items = list(typing.cast(StrDict, value).items())
         else:
             items = list(typing.cast(StrPairs, value))
+
         self._dict = {k: v for k, v in reversed(items)}
         self._list = items
 
@@ -268,7 +268,7 @@ class Request:
     async def json(self):
         if self._json is None:
             body = await self.body()
-            self._json = json_decode(body)
+            self._json = json_decode(body) if body else {}
         return self._json
 
     def client_ip(self):

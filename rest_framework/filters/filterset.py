@@ -12,7 +12,7 @@ from rest_framework.filters import filters
 from rest_framework.utils.constants import EMPTY_VALUES
 
 
-class FilterSetOptions(object):
+class FilterSetOptions:
     def __init__(self, options=None):
         self.model = getattr(options, 'model', None)
         self.fields = getattr(options, 'fields', None)
@@ -81,18 +81,17 @@ FILTER_FOR_DBFIELD_DEFAULTS = {
 }
 
 
-class BaseFilterSet(object):
+class BaseFilterSet:
     FILTER_DEFAULTS = FILTER_FOR_DBFIELD_DEFAULTS
 
-    def __init__(self, data=None, queryset=None):
+    def __init__(self, request_handler, queryset=None):
         if queryset is None:
             queryset = self._meta.model.select().all()
 
         model = queryset.model_class
-
-        self.data = data or {}
+        self.request_handler = request_handler
+        self.data = request_handler.request_data
         self.queryset = queryset
-        # self.request = request
 
         self.filters = copy.deepcopy(self.base_filters)
         # model字段对应的过滤处理类的映射

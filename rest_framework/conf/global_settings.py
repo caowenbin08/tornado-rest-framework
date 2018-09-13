@@ -44,7 +44,7 @@ NON_FIELD_ERRORS = "__all__"
 # 搜索框过滤类的参数变量名
 SEARCH_PARAM = "search"
 # 排序过滤类的参数变量名
-ORDERING_PARAM = "ordering"
+ORDERING_PARAM = "order_field"
 
 DATE_INPUT_FORMATS = [
     '%Y-%m-%d', '%m/%d/%Y', '%m/%d/%y',  # '2006-10-25', '10/25/2006', '10/25/06'
