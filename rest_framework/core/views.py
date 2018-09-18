@@ -94,7 +94,11 @@ class RequestHandler(BaseRequestHandler, metaclass=HandlerMethodType):
 
         parse_data = await parser.parse(self.request)
         if parse_data:
-            self.request_data.update(parse_data)
+            if isinstance(parse_data, dict):
+                self.request_data.update(parse_data)
+            else:
+                self.request_data = parse_data
+
         self.request.data = self.request_data
 
     def write_error(self, content, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR):
