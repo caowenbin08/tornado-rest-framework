@@ -1,15 +1,11 @@
 # -*- coding: utf-8 -*-
-try:
-    import cPickle as pickle
-except ImportError:
-    import pickle
+import pickle
 
 
 class Handler:
-    _pickle_version = pickle.HIGHEST_PROTOCOL
 
     def dumps(self, value):
-        return pickle.dumps(value, self._pickle_version)
+        return pickle.dumps(value, protocol=1)
 
     def loads(self, value):
         return pickle.loads(value)

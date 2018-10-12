@@ -9,7 +9,6 @@ import asyncio
 import string
 from importlib import import_module
 
-from rest_framework.core.singnals import app_closed
 from rest_framework.core.exceptions import CompressorError
 from rest_framework.utils.transcoder import force_bytes
 
@@ -26,25 +25,27 @@ null_control = (dict((k, None) for k in delchars),)
 class BaseCache:
     def __init__(self, server, params: dict):
         self._server = server
-        self.key_prefix = force_bytes(params.get('KEY_PREFIX', b''))
-        self.default_timeout = params.get("DEFAULT_TIMEOUT", 300)
-        self._options = params.get('OPTIONS', {})
-        self._serializer = import_module(params.get('SERIALIZER', DEFAULT_SERIALIZER)).Handler()
-        self._compressor = import_module(params.get('COMPRESSOR', DEFAULT_COMPRESSOR)).Handler()
-        app_closed.connect(self.close)
+        self._params = params
+        self.key_prefix = force_bytes(self._params.get('KEY_PREFIX', b''))
+        self._is_make_key = self.key_prefix != b""
+        self.default_timeout = self._params.get("DEFAULT_TIMEOUT", 300)
+        self._options = self._params.get('OPTIONS', {})
+        self._serializer = import_module(self._params.get('SERIALIZER', DEFAULT_SERIALIZER)).Handler()
+        self._compressor = import_module(self._params.get('COMPRESSOR', DEFAULT_COMPRESSOR)).Handler()
 
     def decode(self, data):
         if data is None:
             return None
 
         try:
-            data = int(data)
-        except (ValueError, TypeError):
-            try:
-                data = self._compressor.decompress(data)
-            except CompressorError:
-                pass
+            data = self._compressor.decompress(data)
+        except CompressorError:
+            pass
+
+        try:
             data = self._serializer.loads(data)
+        except Exception as e:
+            logger.error(f"cache decode error. data: {data}", exc_info=True)
 
         return data
 
@@ -65,7 +66,9 @@ class BaseCache:
         return timeout
 
     def make_key(self, key):
-        return b"%b%b" % (self.key_prefix, force_bytes(key))
+        if self._is_make_key:
+            return b"%b%b" % (self.key_prefix, force_bytes(key))
+        return key
 
     def get(self, key):
         """
@@ -370,61 +373,7 @@ class BaseCache:
         return memoize
 
     async def delete_memoized(self, f, *args, **kwargs):
-        """
-        根据给定的参数删除指定的函数缓存
-        例如
-            @cache.memoize(50)
-            def random_func():
-                return random.randrange(1, 50)
 
-            @cache.memoize()
-            def param_func(a, b):
-                return a+b+random.randrange(1, 50)
-
-            >>> random_func()
-            43
-            >>> random_func()
-            43
-            >>> cache.delete_memoized(random_func)
-            >>> random_func()
-            16
-            >>> param_func(1, 2)
-            32
-            >>> param_func(1, 2)
-            32
-            >>> param_func(2, 2)
-            47
-            >>> cache.delete_memoized(param_func, 1, 2)
-            >>> param_func(1, 2)
-            13
-            >>> param_func(2, 2)
-            47
-
-        或
-            class Adder(object):
-                @cache.memoize()
-                def add(self, b):
-                    return b + random.random()
-
-        .. code-block:: pycon
-
-            >>> adder1 = Adder()
-            >>> adder2 = Adder()
-            >>> adder1.add(3)
-            3.23214234
-            >>> adder2.add(3)
-            3.60898509
-            >>> cache.delete_memoized(adder.add)
-            >>> adder1.add(3)
-            3.01348673
-            >>> adder2.add(3)
-            3.60898509
-            >>> cache.delete_memoized(Adder.add)
-            >>> adder1.add(3)
-            3.53235667
-            >>> adder2.add(3)
-            3.72341788
-        """
         if not callable(f):
             raise DeprecationWarning(
                 "Deleting messages by relative name is no longer  reliable, "
