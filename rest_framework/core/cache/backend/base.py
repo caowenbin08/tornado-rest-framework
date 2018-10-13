@@ -331,7 +331,7 @@ class BaseCache:
             @functools.wraps(f)
             async def handle(*args, **kwargs):
                 cache_key = handle.make_cache_key(f, *args, **kwargs)
-                cache_key = self.make_key(cache_key)
+                # cache_key = self.make_key(cache_key)
 
                 try:
                     cache_value = self.get(cache_key)
