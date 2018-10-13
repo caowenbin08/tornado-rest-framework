@@ -3,7 +3,7 @@ from setuptools import setup, find_packages, Extension
 
 setup(
     name='tornado-rest-framework',
-    version="1.0.7",
+    version="1.0.8",
     keywords=("tornado", "asyncio", "rest api", "python3"),
     description='Tornado Rest Framework',
     long_description="Tornado Rest Framework",
