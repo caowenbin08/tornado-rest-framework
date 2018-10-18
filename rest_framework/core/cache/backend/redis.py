@@ -80,7 +80,7 @@ class CacheWrapper(BaseCache):
 
     async def inc(self, key, delta=1, timeout=DEFAULT_TIMEOUT):
         key = self.make_key(key)
-        result = await self.client.incrby(key, delta)
+        result = await self.client.incr(key, delta)
         timeout = self.get_backend_timeout(timeout)
         if result and timeout is not None:
             await self.client.expire(key, timeout)
@@ -88,7 +88,7 @@ class CacheWrapper(BaseCache):
 
     async def dec(self, key, delta=1):
         key = self.make_key(key)
-        return await self.client.decrby(key, delta)
+        return await self.client.decr(key, delta)
 
     async def clear_keys(self, key_prefix):
         """
