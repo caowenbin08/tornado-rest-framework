@@ -5,6 +5,7 @@ import uvicorn
 from rest_framework.conf import settings
 from rest_framework.core import urls
 from rest_framework.core.request import Request
+from rest_framework.core.websockets import WebSocket
 from rest_framework.core.router import Router, Route
 from rest_framework.core.translation import babel
 from rest_framework.core.views import ErrorHandler
@@ -56,25 +57,51 @@ class Application:
         self.router.add_route(route)
         return handler
 
-    def run(self, host: str='127.0.0.1', port: int=5000):
-        uvicorn.run(self, host=host, port=port)
 
-
-class ASyncApplication(Application):
+class HttpApplication(Application):
     def __call__(self, scope):
-        async def asgi_callable(receive, send):
+        async def process_callable(receive, send):
+            print('--asdfq4r2332---')
+            request = self.request_class(scope, receive)
+            route = self.router.get_route(request)
+            print("--route--", route)
+            response = await route.call_handler(request)
+            await response(receive, send)
+
+        return process_callable
+
+
+class WebSocketApplication(Application):
+    def __call__(self, scope):
+        async def process_callable(receive, send):
             request = self.request_class(scope, receive)
             route = self.router.get_route(request)
             response = await route.call_handler(request)
             await response(receive, send)
 
-        return asgi_callable
+        return process_callable
 
 
-def get_application(interface=b"asgi"):
-    if interface == b"asgi":
-        return ASyncApplication()
+class ProtocolRouter:
+    def __init__(self, protocols):
+        self.protocols = protocols
 
-    else:
-        return Application()
+    def __call__(self, scope):
+        print(scope["type"], '--scope["type"]--')
+        app = self.protocols[scope["type"]]
+        print("-----dddd-app--", app)
+        return app(scope)
+
+    def run(self, host: str='127.0.0.1', port: int=5000):
+        uvicorn.run(self, host=host, port=port)
+
+
+def get_application():
+    app = ProtocolRouter({
+        "http": HttpApplication(),
+        "websocket": WebSocketApplication()
+    })
+
+    return app
+
 

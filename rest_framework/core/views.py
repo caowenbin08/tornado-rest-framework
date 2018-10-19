@@ -74,6 +74,7 @@ class RequestHandler(BaseRequestHandler, metaclass=HandlerMethodType):
         return None
 
     async def prepare(self):
+        print("--dddd---")
         method = self.request.method.lower()
         content_type = self.request.headers.get("Content-Type", "").lower()
         self.request_data = self._parse_query_arguments()

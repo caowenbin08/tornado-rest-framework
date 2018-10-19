@@ -1,5 +1,6 @@
 import re
 import hashlib
+import logging
 from collections import deque
 from typing import Tuple, Iterable, Union
 from inspect import iscoroutinefunction
@@ -7,6 +8,8 @@ from inspect import iscoroutinefunction
 from rest_framework.core.request import Request
 from rest_framework.core.exceptions import RouteConfigurationError
 from rest_framework.core.exceptions import ReverseNotFound, NotFound, MethodNotAllowed
+
+logger = logging.getLogger(__name__)
 
 
 class PatternParser:
@@ -159,6 +162,8 @@ class Router:
         except MethodNotAllowed:
             return self.default_handlers[405]
         except Exception as e:
+            logger.error(f"get route error, url:{request.url} method: {request.method}",
+                         exc_info=True)
             request.context['exc'] = e
             return self.default_handlers[500]
 
