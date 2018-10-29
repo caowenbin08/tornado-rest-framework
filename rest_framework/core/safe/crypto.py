@@ -13,6 +13,10 @@ import binascii
 from rest_framework.core.exceptions import IllegalAesKeyError
 from rest_framework.utils.transcoder import force_bytes, force_text, str2hex, hex2str
 from rest_framework.utils.functional import get_random_string
+try:
+    from fastpbkdf2 import pbkdf2_hmac
+except ImportError:
+    from hashlib import pbkdf2_hmac
 
 
 def constant_time_compare(val1, val2):
@@ -25,7 +29,7 @@ def pbkdf2(password, salt, iterations, dklen=0, digest=None):
     dklen = dklen or None
     password = force_bytes(password)
     salt = force_bytes(salt)
-    return hashlib.pbkdf2_hmac(digest().name, password, salt, iterations, dklen)
+    return pbkdf2_hmac(digest().name, password, salt, iterations, dklen)
 
 
 def _bin_to_long(x):

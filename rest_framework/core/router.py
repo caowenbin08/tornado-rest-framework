@@ -8,6 +8,7 @@ from inspect import iscoroutinefunction
 from rest_framework.core.request import Request
 from rest_framework.core.exceptions import RouteConfigurationError
 from rest_framework.core.exceptions import ReverseNotFound, NotFound, MethodNotAllowed
+from rest_framework.core.websockets import WebSocket
 
 logger = logging.getLogger(__name__)
 
@@ -153,11 +154,14 @@ class Router:
 
         raise NotFound()
 
-    def get_route(self, request: Request) -> 'Route':
+    def get_route(self, request: Request or WebSocket) -> 'Route':
         try:
             route = self._find_route(request.url.path, request.method)
             return route
         except NotFound:
+            if isinstance(request, WebSocket):
+                raise NotFound
+
             return self.default_handlers[404]
         except MethodNotAllowed:
             return self.default_handlers[405]
@@ -165,6 +169,8 @@ class Router:
             logger.error(f"get route error, url:{request.url} method: {request.method}",
                          exc_info=True)
             request.context['exc'] = e
+            if isinstance(request, WebSocket):
+                raise Exception
             return self.default_handlers[500]
 
     def check_integrity(self):

@@ -5,10 +5,12 @@ import asyncio
 
 from rest_framework.core import codecs
 from rest_framework.core.response import Response
+from rest_framework.core.websockets import WebSocket
 from rest_framework.utils import status
 from rest_framework.core.request import Request
 from rest_framework.core.translation import lazy_translate as _
 from rest_framework.core.exceptions import APIException, HTTPError
+from rest_framework.utils.escape import json_decode
 
 SUPPORTED_METHODS = ('get', 'post', 'head', 'options', 'delete', 'put', 'patch')
 logger = logging.getLogger(__name__)
@@ -36,7 +38,7 @@ class BaseRequestHandler:
 
     @classmethod
     def as_view(cls, name, application, **class_kwargs):
-        async def view(request: Request, *args, **kwargs):
+        async def view(request: Request or WebSocket, *args, **kwargs):
             self = view.view_class(application, request, **class_kwargs)
             return await self.dispatch_request(*args, **kwargs)
 
@@ -74,7 +76,6 @@ class RequestHandler(BaseRequestHandler, metaclass=HandlerMethodType):
         return None
 
     async def prepare(self):
-        print("--dddd---")
         method = self.request.method.lower()
         content_type = self.request.headers.get("Content-Type", "").lower()
         self.request_data = self._parse_query_arguments()
@@ -133,7 +134,7 @@ class RequestHandler(BaseRequestHandler, metaclass=HandlerMethodType):
                 return self.write_error(error_content, status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def _handle_request_exception(self, e):
-        logger.error("request exception", exc_info=True)
+        logger.error(f"request `{self.request.url}` exception", exc_info=True)
         if isinstance(e, HTTPError):
             status_code = e.status_code
             http_code_detail = status.HTTP_CODES.get(status_code, None)
@@ -157,3 +158,59 @@ class ErrorHandler(RequestHandler):
 
     def prepare(self):
         raise HTTPError(self._status_code)
+
+
+class WebSocketHandler(BaseRequestHandler):
+    def __init__(self, application, request, **kwargs):
+        self.application = application
+        self.request = request
+        self.initialize(**kwargs)
+        self.path_args = None
+        self.path_kwargs = None
+
+    def initialize(self, **kwargs):
+        pass
+
+    async def on_connect(self):
+        """处理传入的websocket连接"""
+        await self.request.accept()
+
+    async def on_receive(self, data):
+        """处理传入的websocket消息"""
+
+    async def on_disconnect(self, close_code):
+        """处理断开的websocket"""
+
+    async def write_message(self, message):
+        if isinstance(message, dict):
+            return await self.request.send_json(message)
+
+        if isinstance(message, str):
+            return await self.request.send_text(message)
+
+        return await self.request.send_bytes(message)
+
+    async def prepare(self, message):
+        message_context = message.get("bytes", "")
+        if not message_context:
+            message_context = message.get("text", "")
+
+        return json_decode(message_context) if message_context else {}
+
+    async def dispatch_request(self, *args, **kwargs):
+        self.path_args = args
+        self.path_kwargs = kwargs
+        await self.on_connect()
+        close_code = None
+
+        try:
+            while 1:
+                message = await self.request.receive()
+                if message["type"] == "websocket.receive":
+                    data = await self.prepare(message)
+                    await self.on_receive(data)
+                elif message["type"] == "websocket.disconnect":
+                    close_code = message.get("code", 1000)
+                    return
+        finally:
+            await self.on_disconnect(close_code)

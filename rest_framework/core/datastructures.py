@@ -38,8 +38,8 @@ class URL:
         return self.components.netloc
 
     @property
-    def path(self) -> str:
-        return self.components.path
+    def path(self) -> bytes:
+        return self.components.path.encode()
 
     @property
     def params(self) -> str:

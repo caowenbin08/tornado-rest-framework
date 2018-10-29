@@ -24,6 +24,7 @@ class WebSocket(Mapping):
         self._scope = scope
         self._receive = receive
         self._send = send
+        self.context = {}
         self.client_state = WebSocketState.CONNECTING
         self.application_state = WebSocketState.CONNECTING
 
@@ -35,6 +36,10 @@ class WebSocket(Mapping):
 
     def __len__(self) -> int:
         return len(self._scope)
+
+    @property
+    def method(self) -> bytes:
+        return b"GET"
 
     @property
     def url(self) -> URL:

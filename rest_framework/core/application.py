@@ -1,24 +1,24 @@
 import logging
-from typing import Type
 import uvicorn
 
 from rest_framework.conf import settings
 from rest_framework.core import urls
+from rest_framework.core.exceptions import NotFound
 from rest_framework.core.request import Request
 from rest_framework.core.websockets import WebSocket
 from rest_framework.core.router import Router, Route
 from rest_framework.core.translation import babel
 from rest_framework.core.views import ErrorHandler
 from rest_framework.log import configure_logging
+from rest_framework.core.types import ASGIApp, ASGIInstance, Receive, Scope, Send
 
 logger = logging.getLogger(__name__)
 
 
 class Application:
 
-    def __init__(self, request_class: Type[Request]=Request):
+    def __init__(self):
         self.router = Router()
-        self.request_class = request_class
         self.initialize()
 
     def _add_error_routes(self):
@@ -57,27 +57,27 @@ class Application:
         self.router.add_route(route)
         return handler
 
-
-class HttpApplication(Application):
-    def __call__(self, scope):
-        async def process_callable(receive, send):
-            print('--asdfq4r2332---')
-            request = self.request_class(scope, receive)
+    def process_http(self, scope: Scope) -> ASGIInstance:
+        async def process_callable(receive: Receive, send: Send) -> None:
+            request = Request(scope, receive=receive)
             route = self.router.get_route(request)
-            print("--route--", route)
             response = await route.call_handler(request)
             await response(receive, send)
 
         return process_callable
 
-
-class WebSocketApplication(Application):
-    def __call__(self, scope):
-        async def process_callable(receive, send):
-            request = self.request_class(scope, receive)
-            route = self.router.get_route(request)
-            response = await route.call_handler(request)
-            await response(receive, send)
+    def process_websocket(self, scope: Scope) -> ASGIInstance:
+        async def process_callable(receive: Receive, send: Send) -> None:
+            session = WebSocket(scope, receive=receive, send=send)
+            try:
+                route = self.router.get_route(session)
+            except NotFound:
+                await send({"type": "websocket.close", "code": 1000})
+            except Exception:
+                logger.error("websocket request process error", exc_info=True)
+                await send({"type": "websocket.close", "code": 1000})
+            else:
+                await route.call_handler(session)
 
         return process_callable
 
@@ -87,9 +87,7 @@ class ProtocolRouter:
         self.protocols = protocols
 
     def __call__(self, scope):
-        print(scope["type"], '--scope["type"]--')
         app = self.protocols[scope["type"]]
-        print("-----dddd-app--", app)
         return app(scope)
 
     def run(self, host: str='127.0.0.1', port: int=5000):
@@ -97,11 +95,9 @@ class ProtocolRouter:
 
 
 def get_application():
-    app = ProtocolRouter({
-        "http": HttpApplication(),
-        "websocket": WebSocketApplication()
-    })
+    app = Application()
+    protocol_router = ProtocolRouter({"http": app.process_http, "websocket": app.process_websocket})
 
-    return app
+    return protocol_router
 
 
